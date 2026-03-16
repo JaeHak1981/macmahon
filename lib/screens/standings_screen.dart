@@ -290,6 +290,7 @@ class _ResultGridTab extends StatelessWidget {
                 children: [
                   Table(
                     defaultColumnWidth: const IntrinsicColumnWidth(),
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     border: TableBorder.all(color: Colors.black, width: 1.0),
                     children: [
                       // ── 헤더 1행: 연한 연두색 배경 ──────────────────────────
@@ -474,8 +475,9 @@ class _GridMainHeaderCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(minWidth: minWidth ?? 60),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+      height: 72,
       alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(text,
           textAlign: TextAlign.center,
           style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 13)),
