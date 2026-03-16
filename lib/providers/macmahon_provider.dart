@@ -3,6 +3,7 @@ import '../models/macmahon_pair.dart';
 import '../models/macmahon_player.dart';
 import '../services/pairing_service.dart';
 import '../services/storage_service.dart';
+import '../utils/macmahon_utils.dart';
 
 // ─── 상태 클래스 ────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ class MacmahonState {
   MacmahonState copyWith({
     List<MacmahonPlayer>? players,
     List<PairingResult>? history,
-    PairingResult? currentPairing,
+    dynamic currentPairing = _sentinel, // null을 명시적으로 허구하기 위한 센티넬
     int? currentRound,
     bool? isLoading,
     String? errorMessage,
@@ -44,7 +45,7 @@ class MacmahonState {
     return MacmahonState(
       players: players ?? this.players,
       history: history ?? this.history,
-      currentPairing: currentPairing ?? this.currentPairing,
+      currentPairing: currentPairing == _sentinel ? this.currentPairing : currentPairing as PairingResult?,
       currentRound: currentRound ?? this.currentRound,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,
@@ -53,6 +54,8 @@ class MacmahonState {
       tournamentLocation: tournamentLocation ?? this.tournamentLocation,
     );
   }
+
+  static const _sentinel = Object();
 
   Map<String, dynamic> toJson() => {
         'players': players.map((p) => p.toJson()).toList(),
@@ -88,6 +91,15 @@ class MacmahonState {
 
   /// 전체 대진 목록 (현재 라운드)
   List<MacmahonPair> get currentPairs => currentPairing?.pairs ?? [];
+
+  /// 추천 라운드 수
+  int get recommendedRounds {
+    final topBarCount = players.where((p) => p.isTopBar).length;
+    return MacmahonUtils.calculateRecommendedRounds(
+      players.length,
+      topBarCount: topBarCount > 0 ? topBarCount : null,
+    );
+  }
 }
 
 // ─── Notifier ─────────────────────────────────────────────
@@ -239,6 +251,9 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         initialMms: p.initialMms,
         currentMms: p.initialMms,
         isTopBar: p.isTopBar,
+        opponents: {}, // 명시적으로 비우기
+        defeatedOpponents: {}, 
+        floatHistory: [],
       );
     }).toList();
 
@@ -260,10 +275,12 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         if (pair.winnerId == black.id) {
           black.wins++;
           black.currentMms += 1.0;
+          black.defeatedOpponents.add(white.id);
           white.losses++;
         } else if (pair.winnerId == white.id) {
           white.wins++;
           white.currentMms += 1.0;
+          white.defeatedOpponents.add(black.id);
           black.losses++;
         } else if (pair.isResultEntered) {
           // 무승부
@@ -312,15 +329,18 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
 
         if (opponent.id.isNotEmpty) {
           newSos += opponent.currentMms;
-          
-          // SODOS: 내가 이긴 상대의 점수만 합산
-          // 주의: p가 승리한 기록이 있는지 확인이 필요함.
-          // 여기서는 단순화하여 p가 패배하지 않았고(이겼거나 무승부 중 승리 우대),
-          // 상대가 p에게 졌는지 등을 체크할 수도 있으나, 
-          // 가장 확실한 건 pairing history를 보는 것이지만 선수 모델의 wins/losses를 활용.
-          // 표준 SODOS: Sum of scores of opponents YOU DEFEATED.
-          // 우선 SOS만이라도 정확히 계산. SODOS는 승리한 상대 목록이 따로 없으므로 
-          // 현재 구조에선 SOS 우선 구현.
+        }
+      }
+
+      // SODOS 재계산: 내가 이긴 상대의 현재 MMS 합계
+      double newSodos = 0.0;
+      for (final defeatedId in p.defeatedOpponents) {
+        final opponent = players.firstWhere(
+          (other) => other.id == defeatedId,
+          orElse: () => MacmahonPlayer(id: '', name: '', initialMms: 0, currentMms: 0),
+        );
+        if (opponent.id.isNotEmpty) {
+          newSodos += opponent.currentMms;
         }
       }
 
@@ -332,11 +352,12 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         isTopBar: p.isTopBar,
         floatHistory: p.floatHistory,
         opponents: p.opponents,
+        defeatedOpponents: p.defeatedOpponents,
         wins: p.wins,
         losses: p.losses,
         draws: p.draws,
         sos: newSos,
-        sodos: p.sodos, // SODOS는 나중에 승리 상대 추적 기능 추가 후 보완
+        sodos: newSodos,
       );
     }).toList();
 

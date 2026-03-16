@@ -58,7 +58,14 @@ class CostMatrixBuilder {
     final double mmsDiff = (a.currentMms - b.currentMms).abs();
     cost += mmsDiff * mmsDiff * kMmsPenaltyFactor;
 
-    // ── 3. 안티그래비티 페널티 ────────────────────────────────
+    // ── 3. 미세한 랜덤 타이 브레이커 ────────────────────────
+    // 점수가 완전히 같을 때 매번 같은 대진이 나오는 것을 방지하기 위해 아주 작은 난수 추가
+    // (선수 ID의 해시를 활용하여 매칭 결과가 해당 라운드 세션 내에서는 안정적이되, 
+    // 순수하게 점수만으로 결정되지 않게 함)
+    final int combinedHash = a.id.hashCode ^ b.id.hashCode;
+    cost += (combinedHash % 100) / 100.0; 
+
+    // ── 4. 안티그래비티 페널티 ────────────────────────────────
     // Top Bar 이상 선수는 안티그래비티 제외
     if (!a.isTopBar && !b.isTopBar) {
       // 이 페어링에서 각 선수의 예상 float 결과 계산

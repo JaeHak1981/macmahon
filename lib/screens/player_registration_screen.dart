@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_theme.dart';
@@ -35,8 +34,9 @@ class _PlayerRegistrationScreenState
       );
       return;
     }
+    final state = ref.read(macmahonProvider);
     final player = MacmahonPlayer(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id: '${DateTime.now().millisecondsSinceEpoch}_${state.players.length}_$name',
       name: name,
       initialMms: mms,
       currentMms: mms,
@@ -115,7 +115,7 @@ class _PlayerRegistrationScreenState
           ),
           const Divider(height: 1),
 
-          if (players.isNotEmpty) _RecommendationCard(playerCount: players.length),
+          if (players.isNotEmpty) const _RecommendationCard(),
           
           const Divider(height: 1),
 
@@ -237,14 +237,14 @@ class _PlayerTile extends StatelessWidget {
     );
   }
 }
-class _RecommendationCard extends StatelessWidget {
-  final int playerCount;
-  const _RecommendationCard({required this.playerCount});
+class _RecommendationCard extends ConsumerWidget {
+  const _RecommendationCard();
 
   @override
-  Widget build(BuildContext context) {
-    // 권장 라운드 수 계산: ceil(log2(N))
-    final recommendedRounds = playerCount < 2 ? 0 : (math.log(playerCount) / math.log(2)).ceil();
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(macmahonProvider);
+    final playerCount = state.players.length;
+    final recommendedRounds = state.recommendedRounds;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -28,7 +28,7 @@ class PairingService {
     // ── 홀수 선수 처리: 더미 선수 추가 ───────────────────────
     // 더미 선수는 비용이 0으로 설정되어 가장 불리한 선수가 부전승을 받도록 유도
     MacmahonPlayer? byePlayer;
-    final List<MacmahonPlayer> workingList = List.from(players);
+    final List<MacmahonPlayer> workingList = List.from(players)..shuffle(); // 동점자 무작위 처리를 위한 셔플 추가
 
     if (workingList.length % 2 != 0) {
       final dummy = _createDummyPlayer(workingList);

@@ -5,6 +5,7 @@ import '../providers/macmahon_provider.dart';
 import 'player_registration_screen.dart';
 import 'pairing_screen.dart';
 import 'standings_screen.dart';
+import 'round_history_screen.dart';
 import '../providers/history_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -85,6 +86,19 @@ class HomeScreen extends ConsumerWidget {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const StandingsScreen()),
+                      )
+                  : null,
+            ),
+            _MenuButton(
+              icon: Icons.history_edu,
+              label: '라운드 기록',
+              subtitle: '지난 라운드 대진 및 결과',
+              color: const Color(0xFF607D8B),
+              onTap: state.history.isNotEmpty
+                  ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const RoundHistoryScreen()),
                       )
                   : null,
             ),
@@ -277,6 +291,7 @@ class _TournamentStatusCard extends StatelessWidget {
                 _StatItem(
                   label: '라운드',
                   value: '${state.currentRound}R',
+                  subtitle: '(권장: ${state.recommendedRounds}R)',
                   icon: Icons.flag,
                 ),
                 _StatItem(
@@ -296,9 +311,10 @@ class _TournamentStatusCard extends StatelessWidget {
 class _StatItem extends StatelessWidget {
   final String label;
   final String value;
+  final String? subtitle;
   final IconData icon;
   const _StatItem(
-      {required this.label, required this.value, required this.icon});
+      {required this.label, required this.value, this.subtitle, required this.icon});
 
   @override
   Widget build(BuildContext context) {
@@ -311,8 +327,11 @@ class _StatItem extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 22,
                 fontWeight: FontWeight.bold)),
+        if (subtitle != null)
+          Text(subtitle!,
+              style: const TextStyle(color: Colors.white, fontSize: 10)),
         Text(label,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+            style: const TextStyle(color: Colors.white, fontSize: 12)),
       ],
     );
   }

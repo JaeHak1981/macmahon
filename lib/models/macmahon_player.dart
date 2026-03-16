@@ -14,6 +14,7 @@ class MacmahonPlayer {
   final bool isTopBar; // Top Bar 이상 여부 (안티그래비티 제외 대상)
   List<int> floatHistory; // 각 라운드별 플로팅 결과 리스트
   Set<String> opponents; // 이미 대결한 상대 ID 집합
+  Set<String> defeatedOpponents; // 내가 이긴 상대 ID 집합 (SODOS용)
   int wins;
   int losses;
   int draws;
@@ -28,13 +29,15 @@ class MacmahonPlayer {
     this.isTopBar = false,
     List<int>? floatHistory,
     Set<String>? opponents,
+    Set<String>? defeatedOpponents,
     this.wins = 0,
     this.losses = 0,
     this.draws = 0,
     this.sos = 0.0,
     this.sodos = 0.0,
   })  : floatHistory = floatHistory ?? [],
-        opponents = opponents ?? {};
+        opponents = opponents ?? {},
+        defeatedOpponents = defeatedOpponents ?? {};
 
   /// 직전 라운드 플로팅 결과 (-1, 0, +1)
   int? get lastFloat => floatHistory.isEmpty ? null : floatHistory.last;
@@ -78,6 +81,7 @@ class MacmahonPlayer {
         'isTopBar': isTopBar,
         'floatHistory': floatHistory,
         'opponents': opponents.toList(),
+        'defeatedOpponents': defeatedOpponents.toList(),
         'wins': wins,
         'losses': losses,
         'draws': draws,
@@ -94,6 +98,9 @@ class MacmahonPlayer {
         isTopBar: json['isTopBar'] as bool? ?? false,
         floatHistory: List<int>.from(json['floatHistory'] as List),
         opponents: Set<String>.from(json['opponents'] as List),
+        defeatedOpponents: json['defeatedOpponents'] != null 
+            ? Set<String>.from(json['defeatedOpponents'] as List)
+            : {},
         wins: json['wins'] as int? ?? 0,
         losses: json['losses'] as int? ?? 0,
         draws: json['draws'] as int? ?? 0,

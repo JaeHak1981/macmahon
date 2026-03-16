@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_theme.dart';
 import '../models/macmahon_pair.dart';
 import '../providers/macmahon_provider.dart';
-import 'result_entry_screen.dart';
 
 class PairingScreen extends ConsumerWidget {
   const PairingScreen({super.key});
@@ -16,18 +15,8 @@ class PairingScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('라운드 ${state.currentRound} 대진표'),
-        actions: [
-          if (state.currentPairing != null)
-            TextButton.icon(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const ResultEntryScreen()),
-              ),
-              icon: const Icon(Icons.edit, color: Colors.white),
-              label: const Text('결과 입력',
-                  style: TextStyle(color: Colors.white)),
-            ),
+        actions: const [
+          // '결과 입력' 버튼 제거 (내부 통합됨)
         ],
       ),
       body: Column(
@@ -115,15 +104,48 @@ class PairingScreen extends ConsumerWidget {
                     (state.byePlayer != null ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < state.currentPairs.length) {
+                    final pair = state.currentPairs[index];
                     return _PairCard(
-                      pair: state.currentPairs[index],
+                      pair: pair,
                       boardNumber: index + 1,
+                      onResultSelected: (winnerId) {
+                        notifier.recordResult(
+                          blackId: pair.black.id,
+                          whiteId: pair.white.id,
+                          winnerId: winnerId,
+                        );
+                      },
                     );
                   }
                   return _ByeCard(playerName: state.byePlayer!.name);
                 },
               ),
             ),
+
+            // ── 라운드 종료 버튼 ───────────────────────
+            if (state.currentPairing != null)
+              SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: state.currentPairs.every((p) => p.isResultEntered)
+                          ? () {
+                              notifier.advanceRound();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('라운드가 종료되었습니다.')),
+                              );
+                            }
+                          : null,
+                      icon: const Icon(Icons.check_circle),
+                      label: Text(state.currentPairs.every((p) => p.isResultEntered)
+                          ? '라운드 종료 및 다음 대진'
+                          : '모든 결과를 입력하세요 (${state.currentPairs.where((p) => p.isResultEntered).length}/${state.currentPairs.length})'),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ],
       ),
@@ -135,77 +157,161 @@ class PairingScreen extends ConsumerWidget {
 class _PairCard extends StatelessWidget {
   final MacmahonPair pair;
   final int boardNumber;
-  const _PairCard({required this.pair, required this.boardNumber});
+  final Function(String? winnerId) onResultSelected;
+
+  const _PairCard({
+    required this.pair,
+    required this.boardNumber,
+    required this.onResultSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+        padding: const EdgeInsets.all(12),
+        child: Column(
           children: [
-            // 판 번호
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: AppTheme.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text('$boardNumber',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(width: 12),
+            Row(
+              children: [
+                // 판 번호
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text('$boardNumber',
+                        style: const TextStyle(
+                            color: Colors.white, 
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14)),
+                  ),
+                ),
+                const SizedBox(width: 12),
 
-            // 흑번 선수
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                // 흑번 선수
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _StoneCircle(isBlack: true),
-                      const SizedBox(width: 8),
-                      Text(pair.black.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15)),
+                      Row(
+                        children: [
+                          _StoneCircle(isBlack: true),
+                          const SizedBox(width: 8),
+                          Text(pair.black.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      _FloatBadge(floatResult: pair.blackFloatResult),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  _FloatBadge(floatResult: pair.blackFloatResult),
-                ],
-              ),
-            ),
+                ),
 
-            const Text('vs',
-                style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontWeight: FontWeight.bold)),
+                const Text('vs',
+                    style: TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontWeight: FontWeight.bold)),
 
-            // 백번 선수
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                // 백번 선수
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(pair.white.name,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15)),
-                      const SizedBox(width: 8),
-                      _StoneCircle(isBlack: false),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(pair.white.name,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15)),
+                          const SizedBox(width: 8),
+                          _StoneCircle(isBlack: false),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      _FloatBadge(floatResult: pair.whiteFloatResult),
                     ],
                   ),
-                  const SizedBox(height: 4),
-                  _FloatBadge(floatResult: pair.whiteFloatResult),
-                ],
-              ),
+                ),
+              ],
+            ),
+            
+            const Divider(height: 24),
+            
+            // 승패 선택 버튼
+            Row(
+              children: [
+                _QuickResultButton(
+                  label: '흑 승',
+                  isSelected: pair.isResultEntered && pair.winnerId == pair.black.id,
+                  color: AppTheme.black,
+                  onTap: () => onResultSelected(pair.black.id),
+                ),
+                const SizedBox(width: 8),
+                _QuickResultButton(
+                  label: '무승부',
+                  isSelected: pair.isResultEntered && pair.winnerId == null,
+                  color: Colors.orange,
+                  onTap: () => onResultSelected(null),
+                ),
+                const SizedBox(width: 8),
+                _QuickResultButton(
+                  label: '백 승',
+                  isSelected: pair.isResultEntered && pair.winnerId == pair.white.id,
+                  color: Colors.blueGrey,
+                  onTap: () => onResultSelected(pair.white.id),
+                ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickResultButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _QuickResultButton({
+    required this.label,
+    required this.isSelected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? color : Colors.grey.shade300,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              color: isSelected ? color : AppTheme.textSecondary,
+            ),
+          ),
         ),
       ),
     );
