@@ -575,10 +575,10 @@ class _StandingsTile extends StatelessWidget {
 
     if (pair == null) {
       if (roundHistory.byePlayer?.id == player.id) {
-        text = '부전';
+        text = '${roundNum}R : 부전';
         color = Colors.blue;
       } else {
-        text = '-';
+        text = '${roundNum}R : -';
       }
     } else {
       final isBlack = pair.black.id == player.id;
@@ -586,31 +586,31 @@ class _StandingsTile extends StatelessWidget {
       final opponentNum = playerNumbers[opponentId] ?? 0;
 
       if (!pair.isResultEntered) {
-        text = '? $opponentNum';
+        text = '${roundNum}R : ? 상대 : $opponentNum';
       } else if (pair.winnerId == null) {
-        text = '무 $opponentNum';
+        text = '${roundNum}R : 무 상대 : $opponentNum';
         color = Colors.orange;
       } else if (pair.winnerId == player.id) {
-        text = '승 $opponentNum';
+        text = '${roundNum}R : 승 상대 : $opponentNum';
         color = Colors.green;
       } else {
-        text = '패 $opponentNum';
+        text = '${roundNum}R : 패 상대 : $opponentNum';
         color = Colors.red;
       }
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.5),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.4), width: 1.0),
       ),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
           color: color,
         ),
       ),

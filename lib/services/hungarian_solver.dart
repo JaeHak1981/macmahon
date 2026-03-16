@@ -12,7 +12,6 @@ class HungarianSolver {
   /// 각 선수 인덱스는 정확히 1번씩만 등장합니다.
   static List<(int, int)> solve(List<List<double>> costMatrix) {
     final int n = costMatrix.length;
-    assert(n % 2 == 0, '헝가리안 알고리즘은 짝수 크기 행렬이 필요합니다.');
 
     // ── 헝가리안 알고리즘 구현 ────────────────────────────────
     // 표준 헝가리안 알고리즘 (Kuhn-Munkres)

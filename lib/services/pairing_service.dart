@@ -25,28 +25,50 @@ class PairingService {
       return PairingResult(pairs: [], round: round);
     }
 
-    // ── 홀수 선수 처리: 더미 선수 추가 ───────────────────────
-    // 더미 선수는 비용이 0으로 설정되어 가장 불리한 선수가 부전승을 받도록 유도
-    MacmahonPlayer? byePlayer;
-    final List<MacmahonPlayer> workingList = List.from(players)..shuffle(); // 동점자 무작위 처리를 위한 셔플 추가
+    // ── 1. 선수 정렬 (MMS 내림차순) ───────────────────────────
+    final List<MacmahonPlayer> workingList = List.from(players);
+    workingList.sort((a, b) => b.currentMms.compareTo(a.currentMms));
 
+    // ── 2. 홀수 선수 처리: 더미 선수 추가 ───────────────────────
     if (workingList.length % 2 != 0) {
       final dummy = _createDummyPlayer(workingList);
       workingList.add(dummy);
+      // 더미 추가 후 다시 정렬 (더미가 가장 아래로 가도록)
+      workingList.sort((a, b) => b.currentMms.compareTo(a.currentMms));
     }
 
-    // ── 비용 행렬 생성 ────────────────────────────────────────
-    final costMatrix = CostMatrixBuilder.build(workingList);
+    final int n = workingList.length;
+    final int m = n ~/ 2;
 
-    // ── 헝가리안 알고리즘으로 최적 매칭 계산 ─────────────────
-    final matchedPairs = HungarianSolver.solve(costMatrix);
+    // ── 3. 이분 매칭(Bipartite) 할당을 위한 리스트 분할 ─────────────
+    // [0, 2, 4...] 인덱스와 [1, 3, 5...] 인덱스로 분할하여
+    // 최대한 가까운 순위끼리 매칭되도록 보장하면서 모든 선수가 짝을 찾게 합니다.
+    final List<MacmahonPlayer> leftSide = [];
+    final List<MacmahonPlayer> rightSide = [];
+    for (int i = 0; i < n; i++) {
+      if (i % 2 == 0) {
+        leftSide.add(workingList[i]);
+      } else {
+        rightSide.add(workingList[i]);
+      }
+    }
 
-    // ── 결과 정리 ─────────────────────────────────────────────
+    // ── 4. 비용 행렬 생성 (m x m) ─────────────────────────────
+    final costMatrix = List.generate(
+      m,
+      (i) => List.generate(m, (j) => CostMatrixBuilder.calculateCost(leftSide[i], rightSide[j])),
+    );
+
+    // ── 5. 헝가리안 알고리즘으로 최적 매칭 계산 ─────────────────
+    final matchedIndices = HungarianSolver.solve(costMatrix);
+
+    // ── 6. 결과 정리 ─────────────────────────────────────────────
     final List<MacmahonPair> pairs = [];
+    MacmahonPlayer? byePlayer;
 
-    for (final (i, j) in matchedPairs) {
-      final playerA = workingList[i];
-      final playerB = workingList[j];
+    for (final (i, j) in matchedIndices) {
+      final playerA = leftSide[i];
+      final playerB = rightSide[j];
 
       // 더미 선수와 매칭된 경우 → 부전승 처리
       if (playerA.id == _kDummyId) {
@@ -58,7 +80,7 @@ class PairingService {
         continue;
       }
 
-      // 흑/백 배정: MMS 높은 선수가 흑번 (관례)
+      // 흑/백 배정: MMS 높은 선수가 흑번
       final MacmahonPlayer black;
       final MacmahonPlayer white;
       if (playerA.currentMms >= playerB.currentMms) {
