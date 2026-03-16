@@ -85,10 +85,25 @@ class HomeScreen extends ConsumerWidget {
                   ? () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => const StandingsScreen()),
+                            builder: (_) => const StandingsScreen(initialIndex: 0)),
                       )
                   : null,
             ),
+            const SizedBox(height: 12),
+            _MenuButton(
+              icon: Icons.grid_on,
+              label: '결과표 (Grid)',
+              subtitle: '대회 공식 기록지 형식',
+              color: const Color(0xFF9E1C22), // 공식 느낌의 어두운 빨강
+              onTap: state.players.isNotEmpty
+                  ? () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const StandingsScreen(initialIndex: 1)),
+                      )
+                  : null,
+            ),
+            const SizedBox(height: 12),
             _MenuButton(
               icon: Icons.history_edu,
               label: '라운드 기록',

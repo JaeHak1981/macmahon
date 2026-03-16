@@ -7,7 +7,8 @@ import '../providers/macmahon_provider.dart';
 import '../services/export_service.dart';
 
 class StandingsScreen extends ConsumerWidget {
-  const StandingsScreen({super.key});
+  final int initialIndex;
+  const StandingsScreen({super.key, this.initialIndex = 0});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,6 +18,7 @@ class StandingsScreen extends ConsumerWidget {
     final sorted = [...state.players]..sort(_comparePlayers);
 
     return DefaultTabController(
+      initialIndex: initialIndex,
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -208,7 +210,7 @@ class _ResultGridTab extends StatelessWidget {
     }
 
     final rounds = state.history.length;
-    final headerBgColor = Colors.grey.shade100;
+    const headerRed = Color(0xFFC62828); // 짙은 빨강
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
@@ -216,43 +218,48 @@ class _ResultGridTab extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Table(
-            defaultColumnWidth: const IntrinsicColumnWidth(),
-            border: TableBorder.all(color: Colors.black, width: 0.8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 헤더 1행: 주요 정보 타이틀 ──────────────────────────
-              TableRow(
-                decoration: BoxDecoration(color: headerBgColor),
+              Table(
+                defaultColumnWidth: const IntrinsicColumnWidth(),
+                border: TableBorder.all(color: Colors.black, width: 1.0),
                 children: [
-                  _GridMainHeaderCell('번호'),
-                  _GridMainHeaderCell('선수명'),
-                  for (int r = 1; r <= rounds; r++) ...[
-                    _GridMainHeaderCell('${r}R'),
-                    const SizedBox.shrink(),
-                  ],
-                  _GridMainHeaderCell('승수'),
-                  _GridMainHeaderCell('대국\n점수'),
-                  _GridMainHeaderCell('순위'),
+                  // ── 헤더 1행: 짙은 빨강 배경 ──────────────────────────
+                  TableRow(
+                    decoration: const BoxDecoration(color: headerRed),
+                    children: [
+                      _GridMainHeaderCell('번호', textColor: Colors.white),
+                      _GridMainHeaderCell('이름', textColor: Colors.white, minWidth: 100),
+                      for (int r = 1; r <= rounds; r++) ...[
+                        _GridMainHeaderCell('${r}R', textColor: Colors.white),
+                        const SizedBox.shrink(),
+                      ],
+                      _GridMainHeaderCell('초기\nMMS', textColor: Colors.white),
+                      _GridMainHeaderCell('승수', textColor: Colors.white),
+                      _GridMainHeaderCell('순위', textColor: Colors.white),
+                    ],
+                  ),
+                  // ── 헤더 2행: 세부 항목 (상대, 승패) ────────────────
+                  TableRow(
+                    decoration: const BoxDecoration(color: headerRed),
+                    children: [
+                      const SizedBox.shrink(),
+                      const SizedBox.shrink(),
+                      for (int r = 0; r < rounds; r++) ...[
+                        _GridSubHeaderCell('상대', textColor: Colors.white70),
+                        _GridSubHeaderCell('결과', textColor: Colors.white70),
+                      ],
+                      const SizedBox.shrink(),
+                      const SizedBox.shrink(),
+                      const SizedBox.shrink(),
+                    ],
+                  ),
+                  // ── 데이터 행 ───────────────────────────────────────────
+                  for (int index = 0; index < sorted.length; index++)
+                    _buildDataRow(sorted[index], index, playerNumbers, rounds),
                 ],
               ),
-              // ── 헤더 2행: 라운드 세부 타이틀 (상대, 결과) ────────────────
-              TableRow(
-                decoration: BoxDecoration(color: headerBgColor),
-                children: [
-                  const SizedBox.shrink(),
-                  const SizedBox.shrink(),
-                  for (int r = 0; r < rounds; r++) ...[
-                    _GridSubHeaderCell('상대'),
-                    _GridSubHeaderCell('결과'),
-                  ],
-                  const SizedBox.shrink(),
-                  const SizedBox.shrink(),
-                  const SizedBox.shrink(),
-                ],
-              ),
-              // ── 데이터 행 ───────────────────────────────────────────
-              for (int index = 0; index < sorted.length; index++)
-                _buildDataRow(sorted[index], index, playerNumbers, rounds),
             ],
           ),
         ),
@@ -284,10 +291,10 @@ class _ResultGridTab extends StatelessWidget {
     return TableRow(
       children: [
         _GridDataCell('${playerNumbers[player.id]}', textAlign: TextAlign.center),
-        _GridDataCell(player.name, bold: true, minWidth: 80),
+        _GridDataCell(player.name, bold: true, minWidth: 100),
         for (int r = 0; r < rounds; r++) ..._buildRoundCells(player, state.history[r], playerNumbers),
-        _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true, color: Colors.green.shade700),
-        _GridDataCell(player.currentMms.toStringAsFixed(1), textAlign: TextAlign.center),
+        _GridDataCell(player.initialMms.toStringAsFixed(1), textAlign: TextAlign.center),
+        _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true),
         _GridDataCell('$displayRank', textAlign: TextAlign.center, bold: true),
       ],
     );
@@ -324,16 +331,16 @@ class _ResultGridTab extends StatelessWidget {
 
     if (pair.isResultEntered) {
       if (pair.winnerId == null) {
-        marker = '△';
+        marker = '무';
         color = Colors.orange.shade700;
       } else if (pair.winnerId == player.id) {
-        marker = '●';
-        color = Colors.red.shade700;
-        markerSize = 16;
+        marker = '●'; // 빨간 원 (승리)
+        color = const Color(0xFFD32F2F);
+        markerSize = 18;
       } else {
-        marker = '·';
-        color = Colors.blue.shade700;
-        markerSize = 24;
+        marker = '·'; // 파란 점 (패배)
+        color = const Color(0xFF1976D2);
+        markerSize = 28;
       }
     } else {
       marker = '?';
@@ -360,31 +367,35 @@ class _ResultGridTab extends StatelessWidget {
 
 class _GridMainHeaderCell extends StatelessWidget {
   final String text;
-  const _GridMainHeaderCell(this.text);
+  final Color textColor;
+  final double? minWidth;
+  const _GridMainHeaderCell(this.text, {this.textColor = Colors.black, this.minWidth});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      constraints: BoxConstraints(minWidth: minWidth ?? 40),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
       alignment: Alignment.center,
       child: Text(text,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12)),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 13)),
     );
   }
 }
 
 class _GridSubHeaderCell extends StatelessWidget {
   final String text;
-  const _GridSubHeaderCell(this.text);
+  final Color textColor;
+  const _GridSubHeaderCell(this.text, {this.textColor = Colors.black87});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       alignment: Alignment.center,
       child: Text(text,
-          style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 10)),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
 }
