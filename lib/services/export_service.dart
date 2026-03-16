@@ -26,6 +26,7 @@ class ExportService {
         'MMS',
         'SOS',
         'SODOS',
+        'Cumulative',
         'Wins',
         'Losses',
         'Initial MMS',
@@ -42,23 +43,41 @@ class ExportService {
       for (var i = 0; i < players.length; i++) {
         final player = players[i];
         
-        // 순위 계산 로직 (StandingsScreen과 동일하게 적용 권장)
+        // 순위 계산 로직 (StandingsScreen과 동일하게 적용)
         int displayRank = 1;
         if (i > 0) {
-          for (int j = i; j > 0; j--) {
-            final p1 = players[j];
-            final p2 = players[j - 1];
-            bool isSame = p1.currentMms == p2.currentMms &&
-                        p1.sos == p2.sos &&
-                        p1.sodos == p2.sodos &&
-                        !p1.defeatedOpponents.contains(p2.id) &&
-                        !p2.defeatedOpponents.contains(p1.id) &&
-                        p1.initialMms == p2.initialMms &&
-                        p1.wins == p2.wins;
-            if (!isSame) {
-              displayRank = j + 1;
-              break;
+          final prev = players[i - 1];
+          bool isSame = player.currentMms == prev.currentMms &&
+              player.sos == prev.sos &&
+              player.cumulativeScore == prev.cumulativeScore && // 누진점수 추가
+              player.sodos == prev.sodos &&
+              !player.defeatedOpponents.contains(prev.id) &&
+              !prev.defeatedOpponents.contains(player.id) &&
+              player.initialMms == prev.initialMms &&
+              player.wins == prev.wins;
+
+          if (isSame) {
+            // 앞 선수와 동일 순위라면 i 위치를 직접 찾지 않고 이전 순위 재사용이 필요하나, 
+            // 여기서는 단순화하여 i=0부터 다시 체크하거나 캐싱 가능.
+            // 일단 정확한 로직을 위해 다시 루프
+            for (int j = i; j > 0; j--) {
+              final p1 = players[j];
+              final p2 = players[j - 1];
+              bool same = p1.currentMms == p2.currentMms &&
+                  p1.sos == p2.sos &&
+                  p1.cumulativeScore == p2.cumulativeScore &&
+                  p1.sodos == p2.sodos &&
+                  !p1.defeatedOpponents.contains(p2.id) &&
+                  !p2.defeatedOpponents.contains(p1.id) &&
+                  p1.initialMms == p2.initialMms &&
+                  p1.wins == p2.wins;
+              if (!same) {
+                displayRank = j + 1;
+                break;
+              }
             }
+          } else {
+            displayRank = i + 1;
           }
         }
 
@@ -68,9 +87,10 @@ class ExportService {
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value = DoubleCellValue(player.currentMms);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value = DoubleCellValue(player.sos);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex)).value = DoubleCellValue(player.sodos);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex)).value = IntCellValue(player.wins);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex)).value = IntCellValue(player.losses);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex)).value = DoubleCellValue(player.cumulativeScore);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex)).value = IntCellValue(player.wins);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex)).value = IntCellValue(player.losses);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
       }
 
       // ── 파일 저장 ──────────────────────────────────────────
