@@ -20,6 +20,7 @@ class MacmahonPlayer {
   int draws;
   double sos; // Sum of Opponents' Scores
   double sodos; // Sum of Defeated Opponents' Scores
+  double cumulativeScore; // 점수 누계 (Progressive Score) - 타이 브레이크용
 
   MacmahonPlayer({
     required this.id,
@@ -35,6 +36,7 @@ class MacmahonPlayer {
     this.draws = 0,
     this.sos = 0.0,
     this.sodos = 0.0,
+    this.cumulativeScore = 0.0,
   })  : floatHistory = floatHistory ?? [],
         opponents = opponents ?? {},
         defeatedOpponents = defeatedOpponents ?? {};
@@ -48,6 +50,11 @@ class MacmahonPlayer {
     if (floatHistory.length < 2) return false;
     return floatHistory[floatHistory.length - 1] == -1 &&
         floatHistory[floatHistory.length - 2] == -1;
+  }
+
+  /// 직전 라운드 혹은 지정된 라운드 후에 점수 누계 업데이트
+  void updateCumulativeScore() {
+    cumulativeScore += currentMms;
   }
 
   /// 직전 라운드가 Float Down인지 여부 (강한 페널티 대상)
@@ -66,6 +73,7 @@ class MacmahonPlayer {
   void applyRoundResult({required int floatResult, required double mmsDelta}) {
     floatHistory.add(floatResult);
     currentMms += mmsDelta;
+    updateCumulativeScore(); // 라운드 종료 시점의 MMS를 누적
   }
 
   @override
@@ -87,6 +95,7 @@ class MacmahonPlayer {
         'draws': draws,
         'sos': sos,
         'sodos': sodos,
+        'cumulativeScore': cumulativeScore,
       };
 
   factory MacmahonPlayer.fromJson(Map<String, dynamic> json) =>
@@ -106,5 +115,6 @@ class MacmahonPlayer {
         draws: json['draws'] as int? ?? 0,
         sos: (json['sos'] as num? ?? 0.0).toDouble(),
         sodos: (json['sodos'] as num? ?? 0.0).toDouble(),
+        cumulativeScore: (json['cumulativeScore'] as num? ?? 0.0).toDouble(),
       );
 }
