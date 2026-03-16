@@ -538,11 +538,12 @@ class _StandingsTile extends StatelessWidget {
             Expanded(
               child: history.isEmpty
                   ? const SizedBox.shrink()
-                  : Center(
+                  : Padding(
+                      padding: const EdgeInsets.only(left: 8.0),
                       child: Wrap(
                         spacing: 4,
                         runSpacing: 2,
-                        alignment: WrapAlignment.center,
+                        alignment: WrapAlignment.start,
                         children: [
                           for (int r = 0; r < history.length; r++)
                             _buildRoundMiniBadge(history[r], r + 1),

@@ -254,6 +254,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         opponents: {}, // 명시적으로 비우기
         defeatedOpponents: {}, 
         floatHistory: [],
+        cumulativeScore: 0.0, // 명시적 초기화
       );
     }).toList();
 
@@ -298,6 +299,11 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         bye.wins++;
         bye.floatHistory.add(0);
       }
+
+      // 라운드 종료 시점의 MMS를 누계 (Progressive Score)
+      for (final p in players) {
+        p.updateCumulativeScore();
+      }
     }
 
     // 3. 상태 업데이트
@@ -324,7 +330,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         final opponent = players.firstWhere(
           (other) => other.id == opponentId,
           orElse: () => MacmahonPlayer(
-              id: '', name: '', initialMms: 0, currentMms: 0), // fallback
+              id: '', name: '', initialMms: 0.0, currentMms: 0.0), // fallback with doubles
         );
 
         if (opponent.id.isNotEmpty) {
@@ -358,6 +364,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         draws: p.draws,
         sos: newSos,
         sodos: newSodos,
+        cumulativeScore: p.cumulativeScore, // 누계 점수 유지
       );
     }).toList();
 

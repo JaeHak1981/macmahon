@@ -96,7 +96,7 @@ class PairingResult {
   }
 
   /// 전체 비용 합계 (낮을수록 페어링 품질이 높음)
-  double get totalCost => pairs.fold(0, (sum, p) => sum + p.cost);
+  double get totalCost => pairs.fold(0.0, (sum, p) => sum + p.cost);
 
   Map<String, dynamic> toJson() => {
         'round': round,

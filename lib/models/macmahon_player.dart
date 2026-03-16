@@ -15,12 +15,12 @@ class MacmahonPlayer {
   List<int> floatHistory; // 각 라운드별 플로팅 결과 리스트
   Set<String> opponents; // 이미 대결한 상대 ID 집합
   Set<String> defeatedOpponents; // 내가 이긴 상대 ID 집합 (SODOS용)
-  int wins;
-  int losses;
-  int draws;
-  double sos; // Sum of Opponents' Scores
-  double sodos; // Sum of Defeated Opponents' Scores
-  double cumulativeScore; // 점수 누계 (Progressive Score) - 타이 브레이크용
+  int wins = 0;
+  int losses = 0;
+  int draws = 0;
+  double sos = 0.0; // Sum of Opponents' Scores
+  double sodos = 0.0; // Sum of Defeated Opponents' Scores
+  double cumulativeScore = 0.0; // 점수 누계 (Progressive Score) - 타이 브레이크용
 
   MacmahonPlayer({
     required this.id,
