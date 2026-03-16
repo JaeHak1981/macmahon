@@ -68,23 +68,12 @@ class HungarianSolver {
     }
 
     // ── 결과 추출 ─────────────────────────────────────────────
-    // p[j] = i 관계에서 매칭 쌍 (i-1, j-1) 추출 (0-indexed 변환)
-    // 중복 없이 쌍으로 변환
     final List<(int, int)> result = [];
-    final Set<int> matched = {};
-
     for (int j = 1; j <= n; j++) {
       final int i = p[j];
       if (i == 0) continue;
-      final int row = i - 1;
-      final int col = j - 1;
-      if (!matched.contains(row) && !matched.contains(col)) {
-        result.add((row, col));
-        matched.add(row);
-        matched.add(col);
-      }
+      result.add((i - 1, j - 1));
     }
-
     return result;
   }
 }
