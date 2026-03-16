@@ -369,7 +369,7 @@ class _ResultGridTab extends StatelessWidget {
         }
       } else {
         marker = '';
-        color = Colors.grey;
+        color = Colors.black; // 진행 중인 라운드의 기본 색상은 검은색
       }
     } else if (roundHistory.byePlayer?.id == player.id) {
       marker = '● (부전)';
@@ -380,7 +380,12 @@ class _ResultGridTab extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _GridDataCell(opponentNumStr, minWidth: 60, color: color, bold: pair?.isResultEntered ?? false),
+        _GridDataCell(
+          opponentNumStr,
+          minWidth: 60,
+          color: pair != null && !pair.isResultEntered ? Colors.black : color,
+          bold: pair != null, // 대진이 있으면 무조건 굵게 표시
+        ),
         Container(width: 1, height: 72, color: Colors.black),
         _GridDataCellWithScore(marker, mmsAfterRound, color: color, fontSize: markerSize ?? 13, bold: true),
       ],
