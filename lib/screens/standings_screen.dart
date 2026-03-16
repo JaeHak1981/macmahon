@@ -209,6 +209,38 @@ class _ResultGridTab extends StatelessWidget {
       playerNumbers[state.players[i].id] = i + 1;
     }
 
+    // 선수별 라운드 종료 후 MMS 히스토리 계산
+    final playerMmsByRound = <String, List<double>>{};
+    for (final p in state.players) {
+      playerMmsByRound[p.id] = [p.initialMms];
+    }
+
+    for (int r = 0; r < state.history.length; r++) {
+      final roundResult = state.history[r];
+      for (final p in state.players) {
+        double current = playerMmsByRound[p.id]!.last;
+        
+        // 해당 라운드 대진 찾기
+        MacmahonPair? pair;
+        try {
+          pair = roundResult.pairs.firstWhere((pair) => pair.black.id == p.id || pair.white.id == p.id);
+        } catch (_) {
+          pair = null;
+        }
+
+        if (pair != null) {
+          if (pair.winnerId == p.id) {
+            current += 1.0;
+          } else if (pair.winnerId == null && pair.isResultEntered) {
+            current += 0.5;
+          }
+        } else if (roundResult.byePlayer?.id == p.id) {
+          current += 1.0;
+        }
+        playerMmsByRound[p.id]!.add(current);
+      }
+    }
+
     // 선수별 순위 미리 계산 (동순위 처리 포함)
     final playerRanks = <String, int>{};
     for (int i = 0; i < sorted.length; i++) {
@@ -286,9 +318,9 @@ class _ResultGridTab extends StatelessWidget {
                           const SizedBox.shrink(),
                         ],
                       ),
-                      // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
-                      for (int i = 0; i < state.players.length; i++)
-                        _buildDataRow(state.players[i], i + 1, playerNumbers, rounds, playerRanks[state.players[i].id] ?? 0),
+                    // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
+                    for (final player in state.players)
+                      _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, rounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
                     ],
                   ),
                 ],
@@ -300,12 +332,12 @@ class _ResultGridTab extends StatelessWidget {
     );
   }
 
-  TableRow _buildDataRow(MacmahonPlayer player, int playerNum, Map<String, int> playerNumbers, int rounds, int rank) {
+  TableRow _buildDataRow(MacmahonPlayer player, int playerNum, Map<String, int> playerNumbers, int rounds, int rank, List<double> mmsHistory) {
     return TableRow(
       children: [
         _GridDataCell('$playerNum', textAlign: TextAlign.center),
         _GridDataCell(player.name, bold: true, minWidth: 100, textAlign: TextAlign.center),
-        for (int r = 0; r < rounds; r++) ..._buildRoundCells(player, state.history[r], playerNumbers),
+        for (int r = 0; r < rounds; r++) ..._buildRoundCells(player, state.history[r], playerNumbers, mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null),
         _GridDataCell(player.initialMms.toStringAsFixed(1), textAlign: TextAlign.center),
         _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true),
         _GridDataCell('$rank', textAlign: TextAlign.center, bold: true),
@@ -313,7 +345,7 @@ class _ResultGridTab extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildRoundCells(MacmahonPlayer player, PairingResult roundHistory, Map<String, int> playerNumbers) {
+  List<Widget> _buildRoundCells(MacmahonPlayer player, PairingResult roundHistory, Map<String, int> playerNumbers, double? mmsAfterRound) {
     MacmahonPair? pair;
     try {
       pair = roundHistory.pairs.firstWhere((p) => p.black.id == player.id || p.white.id == player.id);
@@ -321,11 +353,15 @@ class _ResultGridTab extends StatelessWidget {
       pair = null;
     }
 
+    String marker = '';
+    Color color = Colors.black;
+    double? markerSize;
+
     if (pair == null) {
       if (roundHistory.byePlayer?.id == player.id) {
         return [
           _GridDataCell('-', textAlign: TextAlign.center),
-          _GridDataCell('● (부전)', color: const Color(0xFFD32F2F), textAlign: TextAlign.center, fontSize: 11, bold: true),
+          _GridDataCellWithScore('● (부전)', mmsAfterRound, color: const Color(0xFFD32F2F), fontSize: 11, bold: true),
         ];
       }
       return [
@@ -337,10 +373,6 @@ class _ResultGridTab extends StatelessWidget {
     final isBlack = pair.black.id == player.id;
     final opponentId = isBlack ? pair.white.id : pair.black.id;
     final opponentNum = playerNumbers[opponentId] ?? 0;
-
-    String marker = '';
-    Color color = Colors.black;
-    double? markerSize;
 
     if (pair.isResultEntered) {
       if (pair.winnerId == null) {
@@ -362,21 +394,56 @@ class _ResultGridTab extends StatelessWidget {
 
     return [
       _GridDataCell('$opponentNum', textAlign: TextAlign.center, color: color, bold: pair.isResultEntered),
-      Container(
-        height: 40,
-        alignment: Alignment.center,
-        child: Text(
-          marker,
-          style: TextStyle(
-            color: color,
-            fontSize: markerSize ?? 13,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+      _GridDataCellWithScore(marker, mmsAfterRound, color: color, fontSize: markerSize ?? 13, bold: true),
     ];
   }
 }
+
+class _GridDataCellWithScore extends StatelessWidget {
+  final String marker;
+  final double? score;
+  final Color color;
+  final double fontSize;
+  final bool bold;
+
+  const _GridDataCellWithScore(this.marker, this.score, {
+    required this.color,
+    required this.fontSize,
+    this.bold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 40),
+      height: 60, // 점수 표시를 위해 높이 증가
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            marker,
+            style: TextStyle(
+              color: color,
+              fontSize: fontSize,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+          if (score != null)
+            Text(
+              '(${score!.toStringAsFixed(1)})',
+              style: TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 9,
+                fontWeight: FontWeight.normal,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _GridMainHeaderCell extends StatelessWidget {
   final String text;
@@ -433,7 +500,7 @@ class _GridDataCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(minWidth: minWidth ?? 35),
-      height: 40,
+      height: 60, // 높이 증가 (60으로 통일)
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
