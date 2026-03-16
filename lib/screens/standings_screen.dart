@@ -415,7 +415,7 @@ class _GridDataCellWithScore extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: const BoxConstraints(minWidth: 40),
+      constraints: const BoxConstraints(minWidth: 60),
       height: 60, // 점수 표시를 위해 높이 증가
       alignment: Alignment.center,
       child: Column(
@@ -454,7 +454,7 @@ class _GridMainHeaderCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(minWidth: minWidth ?? 40),
+      constraints: BoxConstraints(minWidth: minWidth ?? 60),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
       alignment: Alignment.center,
       child: Text(text,
@@ -499,7 +499,7 @@ class _GridDataCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(minWidth: minWidth ?? 35),
+      constraints: BoxConstraints(minWidth: minWidth ?? 60),
       height: 60, // 높이 증가 (60으로 통일)
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 4),
