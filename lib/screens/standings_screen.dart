@@ -209,6 +209,31 @@ class _ResultGridTab extends StatelessWidget {
       playerNumbers[state.players[i].id] = i + 1;
     }
 
+    // 선수별 순위 미리 계산 (동순위 처리 포함)
+    final playerRanks = <String, int>{};
+    for (int i = 0; i < sorted.length; i++) {
+      final p = sorted[i];
+      if (i > 0) {
+        final prev = sorted[i - 1];
+        bool isSame = p.currentMms == prev.currentMms &&
+            p.sos == prev.sos &&
+            p.cumulativeScore == prev.cumulativeScore &&
+            p.sodos == prev.sodos &&
+            !p.defeatedOpponents.contains(prev.id) &&
+            !prev.defeatedOpponents.contains(p.id) &&
+            p.initialMms == prev.initialMms &&
+            p.wins == prev.wins;
+        
+        if (isSame) {
+          playerRanks[p.id] = playerRanks[prev.id]!;
+        } else {
+          playerRanks[p.id] = i + 1;
+        }
+      } else {
+        playerRanks[p.id] = 1;
+      }
+    }
+
     final rounds = state.history.length;
     const headerRed = Color(0xFFC62828); // 짙은 빨강
 
@@ -218,84 +243,66 @@ class _ResultGridTab extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Table(
-                defaultColumnWidth: const IntrinsicColumnWidth(),
-                border: TableBorder.all(color: Colors.black, width: 1.0),
-                children: [
-                  // ── 헤더 1행: 짙은 빨강 배경 ──────────────────────────
-                  TableRow(
-                    decoration: const BoxDecoration(color: headerRed),
-                    children: [
-                      _GridMainHeaderCell('번호', textColor: Colors.white),
-                      _GridMainHeaderCell('이름', textColor: Colors.white, minWidth: 100),
-                      for (int r = 1; r <= rounds; r++) ...[
-                        _GridMainHeaderCell('${r}R', textColor: Colors.white),
+          child: Center(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Table(
+                  defaultColumnWidth: const IntrinsicColumnWidth(),
+                  border: TableBorder.all(color: Colors.black, width: 1.0),
+                  children: [
+                    // ── 헤더 1행: 짙은 빨강 배경 ──────────────────────────
+                    TableRow(
+                      decoration: const BoxDecoration(color: headerRed),
+                      children: [
+                        _GridMainHeaderCell('번호', textColor: Colors.white),
+                        _GridMainHeaderCell('이름', textColor: Colors.white, minWidth: 100),
+                        for (int r = 1; r <= rounds; r++) ...[
+                          _GridMainHeaderCell('${r}R', textColor: Colors.white),
+                          const SizedBox.shrink(),
+                        ],
+                        _GridMainHeaderCell('초기\nMMS', textColor: Colors.white),
+                        _GridMainHeaderCell('승수', textColor: Colors.white),
+                        _GridMainHeaderCell('순위', textColor: Colors.white),
+                      ],
+                    ),
+                    // ── 헤더 2행: 세부 항목 (상대, 승패) ────────────────
+                    TableRow(
+                      decoration: const BoxDecoration(color: headerRed),
+                      children: [
+                        const SizedBox.shrink(),
+                        const SizedBox.shrink(),
+                        for (int r = 0; r < rounds; r++) ...[
+                          _GridSubHeaderCell('상대', textColor: Colors.white70),
+                          _GridSubHeaderCell('결과', textColor: Colors.white70),
+                        ],
+                        const SizedBox.shrink(),
+                        const SizedBox.shrink(),
                         const SizedBox.shrink(),
                       ],
-                      _GridMainHeaderCell('초기\nMMS', textColor: Colors.white),
-                      _GridMainHeaderCell('승수', textColor: Colors.white),
-                      _GridMainHeaderCell('순위', textColor: Colors.white),
-                    ],
-                  ),
-                  // ── 헤더 2행: 세부 항목 (상대, 승패) ────────────────
-                  TableRow(
-                    decoration: const BoxDecoration(color: headerRed),
-                    children: [
-                      const SizedBox.shrink(),
-                      const SizedBox.shrink(),
-                      for (int r = 0; r < rounds; r++) ...[
-                        _GridSubHeaderCell('상대', textColor: Colors.white70),
-                        _GridSubHeaderCell('결과', textColor: Colors.white70),
-                      ],
-                      const SizedBox.shrink(),
-                      const SizedBox.shrink(),
-                      const SizedBox.shrink(),
-                    ],
-                  ),
-                  // ── 데이터 행 ───────────────────────────────────────────
-                  for (int index = 0; index < sorted.length; index++)
-                    _buildDataRow(sorted[index], index, playerNumbers, rounds),
-                ],
-              ),
-            ],
+                    ),
+                    // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
+                    for (int i = 0; i < state.players.length; i++)
+                      _buildDataRow(state.players[i], i + 1, playerNumbers, rounds, playerRanks[state.players[i].id] ?? 0),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  TableRow _buildDataRow(MacmahonPlayer player, int sortedIndex, Map<String, int> playerNumbers, int rounds) {
-    int displayRank = 1;
-    if (sortedIndex > 0) {
-      for (int i = sortedIndex; i > 0; i--) {
-        final p1 = sorted[sortedIndex];
-        final p2 = sorted[i - 1];
-        bool isSame = p1.currentMms == p2.currentMms &&
-            p1.sos == p2.sos &&
-            p1.cumulativeScore == p2.cumulativeScore && // 누진점수 추가
-            p1.sodos == p2.sodos &&
-            !p1.defeatedOpponents.contains(p2.id) &&
-            !p2.defeatedOpponents.contains(p1.id) &&
-            p1.initialMms == p2.initialMms &&
-            p1.wins == p2.wins;
-        if (!isSame) {
-          displayRank = i + 1;
-          break;
-        }
-      }
-    }
-
+  TableRow _buildDataRow(MacmahonPlayer player, int playerNum, Map<String, int> playerNumbers, int rounds, int rank) {
     return TableRow(
       children: [
-        _GridDataCell('${playerNumbers[player.id]}', textAlign: TextAlign.center),
-        _GridDataCell(player.name, bold: true, minWidth: 100),
+        _GridDataCell('$playerNum', textAlign: TextAlign.center),
+        _GridDataCell(player.name, bold: true, minWidth: 100, textAlign: TextAlign.center),
         for (int r = 0; r < rounds; r++) ..._buildRoundCells(player, state.history[r], playerNumbers),
         _GridDataCell(player.initialMms.toStringAsFixed(1), textAlign: TextAlign.center),
         _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true),
-        _GridDataCell('$displayRank', textAlign: TextAlign.center, bold: true),
+        _GridDataCell('$rank', textAlign: TextAlign.center, bold: true),
       ],
     );
   }
@@ -411,7 +418,7 @@ class _GridDataCell extends StatelessWidget {
   const _GridDataCell(this.text, {
     this.bold = false, 
     this.color, 
-    this.textAlign = TextAlign.start, 
+    this.textAlign = TextAlign.center, 
     this.minWidth,
     this.fontSize,
   });
