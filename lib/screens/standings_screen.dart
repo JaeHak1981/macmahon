@@ -392,7 +392,7 @@ class _ResultGridTab extends StatelessWidget {
         markerSize = 28;
       }
     } else {
-      marker = '?';
+      marker = '';
       color = Colors.grey;
     }
 
