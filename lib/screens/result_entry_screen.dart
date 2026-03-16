@@ -199,8 +199,9 @@ class _ResultTile extends StatelessWidget {
             Row(
               children: [
                 _ResultButton(
-                  label: '${pair.black.name} 승',
-                  icon: Icons.circle,
+                  label: pair.black.name,
+                  suffix: '승',
+                  icon: Icons.person,
                   color: AppTheme.black,
                   isSelected: selected == 'black',
                   onTap: () => onSelect('black'),
@@ -208,15 +209,18 @@ class _ResultTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 _ResultButton(
                   label: '무승부',
-                  icon: Icons.remove,
+                  suffix: '',
+                  icon: Icons.remove_circle_outline,
                   color: Colors.orange,
                   isSelected: selected == 'draw',
+                  isSmall: true,
                   onTap: () => onSelect('draw'),
                 ),
                 const SizedBox(width: 8),
                 _ResultButton(
-                  label: '${pair.white.name} 승',
-                  icon: Icons.circle_outlined,
+                  label: pair.white.name,
+                  suffix: '승',
+                  icon: Icons.person_outline,
                   color: Colors.blueGrey,
                   isSelected: selected == 'white',
                   onTap: () => onSelect('white'),
@@ -232,50 +236,80 @@ class _ResultTile extends StatelessWidget {
 
 class _ResultButton extends StatelessWidget {
   final String label;
+  final String suffix;
   final IconData icon;
   final Color color;
   final bool isSelected;
+  final bool isSmall;
   final VoidCallback onTap;
 
   const _ResultButton({
     required this.label,
+    required this.suffix,
     required this.icon,
     required this.color,
     required this.isSelected,
+    this.isSmall = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
+      flex: isSmall ? 2 : 3,
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.15) : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+            color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected 
+                ? [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2))]
+                : null,
             border: Border.all(
               color: isSelected ? color : Colors.grey.shade300,
               width: isSelected ? 2 : 1,
             ),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: isSelected ? color : Colors.grey, size: 20),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight:
-                      isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? color : Colors.grey,
-                ),
+              Icon(icon, color: isSelected ? color : Colors.grey.shade400, size: 22),
+              const SizedBox(height: 6),
+              RichText(
                 textAlign: TextAlign.center,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  style: TextStyle(
+                    fontSize: isSmall ? 11 : 13,
+                    fontFamily: 'Pretendard', // 기본 폰트 사용 시 생략 가능
+                    color: isSelected ? color : Colors.grey.shade700,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: label,
+                      style: TextStyle(
+                        fontWeight:
+                            isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                    if (suffix.isNotEmpty)
+                      TextSpan(
+                        text: ' $suffix',
+                        style: TextStyle(
+                          fontSize: isSmall ? 11 : 12,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? color
+                              : Colors.grey.shade500,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),

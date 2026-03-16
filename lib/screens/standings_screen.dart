@@ -329,6 +329,8 @@ class _ResultGridTab extends StatelessWidget {
                             _GridRoundHeader('${r}R'),
                           _GridMainHeaderCell('초기\nMMS', textColor: Colors.black),
                           _GridMainHeaderCell('승수', textColor: Colors.black),
+                          _GridMainHeaderCell('MMS', textColor: AppTheme.primary),
+                          _GridMainHeaderCell('SOS', textColor: AppTheme.textSecondary),
                           _GridMainHeaderCell('순위', textColor: Colors.black),
                         ],
                       ),
@@ -355,6 +357,8 @@ class _ResultGridTab extends StatelessWidget {
           _buildRoundCell(player, allRounds[r], playerNumbers, mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null),
         _GridDataCell(player.initialMms.toStringAsFixed(1), textAlign: TextAlign.center),
         _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true),
+        _GridDataCell(player.currentMms.toStringAsFixed(1), textAlign: TextAlign.center, bold: true, color: AppTheme.primary),
+        _GridDataCell(player.sos.toStringAsFixed(1), textAlign: TextAlign.center, color: AppTheme.textSecondary),
         _GridDataCell('$rank', textAlign: TextAlign.center, bold: true),
       ],
     );

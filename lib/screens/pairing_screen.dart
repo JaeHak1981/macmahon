@@ -246,22 +246,28 @@ class _PairCard extends StatelessWidget {
             Row(
               children: [
                 _QuickResultButton(
-                  label: '흑 승',
-                  isSelected: pair.isResultEntered && pair.winnerId == pair.black.id,
+                  label: pair.black.name,
+                  suffix: '승',
+                  isSelected:
+                      pair.isResultEntered && pair.winnerId == pair.black.id,
                   color: AppTheme.black,
                   onTap: () => onResultSelected(pair.black.id),
                 ),
                 const SizedBox(width: 8),
                 _QuickResultButton(
                   label: '무승부',
+                  suffix: '',
                   isSelected: pair.isResultEntered && pair.winnerId == null,
                   color: Colors.orange,
+                  isSmall: true,
                   onTap: () => onResultSelected(null),
                 ),
                 const SizedBox(width: 8),
                 _QuickResultButton(
-                  label: '백 승',
-                  isSelected: pair.isResultEntered && pair.winnerId == pair.white.id,
+                  label: pair.white.name,
+                  suffix: '승',
+                  isSelected:
+                      pair.isResultEntered && pair.winnerId == pair.white.id,
                   color: Colors.blueGrey,
                   onTap: () => onResultSelected(pair.white.id),
                 ),
@@ -276,13 +282,17 @@ class _PairCard extends StatelessWidget {
 
 class _QuickResultButton extends StatelessWidget {
   final String label;
+  final String suffix;
   final bool isSelected;
+  final bool isSmall;
   final Color color;
   final VoidCallback onTap;
 
   const _QuickResultButton({
     required this.label,
+    required this.suffix,
     required this.isSelected,
+    this.isSmall = false,
     required this.color,
     required this.onTap,
   });
@@ -290,26 +300,49 @@ class _QuickResultButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
+      flex: isSmall ? 2 : 3,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
+            color:
+                isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? color : Colors.grey.shade300,
               width: isSelected ? 2 : 1,
             ),
           ),
-          child: Text(
-            label,
+          child: RichText(
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              color: isSelected ? color : AppTheme.textSecondary,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              style: TextStyle(
+                fontSize: isSmall ? 11 : 13,
+                fontFamily: 'Pretendard',
+                color: isSelected ? color : AppTheme.textSecondary,
+              ),
+              children: [
+                TextSpan(
+                  text: label,
+                  style: TextStyle(
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+                if (suffix.isNotEmpty)
+                  TextSpan(
+                    text: ' $suffix',
+                    style: TextStyle(
+                      fontSize: isSmall ? 11 : 12,
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? color : AppTheme.textSecondary,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),
