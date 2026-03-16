@@ -266,7 +266,11 @@ class _ResultGridTab extends StatelessWidget {
       }
     }
 
-    final rounds = state.history.length;
+    final allRounds = [...state.history];
+    if (state.currentPairing != null) {
+      allRounds.add(state.currentPairing!);
+    }
+    final roundsCount = allRounds.length;
     const headerGreen = Color(0xFFDCEDC8); // 연한 연두색
 
     return SingleChildScrollView(
@@ -294,7 +298,7 @@ class _ResultGridTab extends StatelessWidget {
                         children: [
                           _GridMainHeaderCell('번호', textColor: Colors.black),
                           _GridMainHeaderCell('이름', textColor: Colors.black, minWidth: 100),
-                          for (int r = 1; r <= rounds; r++) ...[
+                          for (int r = 1; r <= roundsCount; r++) ...[
                             _GridMainHeaderCell('${r}R', textColor: Colors.black),
                             const SizedBox.shrink(),
                           ],
@@ -309,7 +313,7 @@ class _ResultGridTab extends StatelessWidget {
                         children: [
                           const SizedBox.shrink(),
                           const SizedBox.shrink(),
-                          for (int r = 0; r < rounds; r++) ...[
+                          for (int r = 0; r < roundsCount; r++) ...[
                             _GridSubHeaderCell('상대', textColor: Colors.black87),
                             _GridSubHeaderCell('결과', textColor: Colors.black87),
                           ],
@@ -320,7 +324,7 @@ class _ResultGridTab extends StatelessWidget {
                       ),
                     // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
                     for (final player in state.players)
-                      _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, rounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
+                      _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, allRounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
                     ],
                   ),
                 ],
@@ -332,12 +336,12 @@ class _ResultGridTab extends StatelessWidget {
     );
   }
 
-  TableRow _buildDataRow(MacmahonPlayer player, int playerNum, Map<String, int> playerNumbers, int rounds, int rank, List<double> mmsHistory) {
+  TableRow _buildDataRow(MacmahonPlayer player, int playerNum, Map<String, int> playerNumbers, List<PairingResult> allRounds, int rank, List<double> mmsHistory) {
     return TableRow(
       children: [
         _GridDataCell('$playerNum', textAlign: TextAlign.center),
         _GridDataCell(player.name, bold: true, minWidth: 100, textAlign: TextAlign.center),
-        for (int r = 0; r < rounds; r++) ..._buildRoundCells(player, state.history[r], playerNumbers, mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null),
+        for (int r = 0; r < allRounds.length; r++) ..._buildRoundCells(player, allRounds[r], playerNumbers, mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null),
         _GridDataCell(player.initialMms.toStringAsFixed(1), textAlign: TextAlign.center),
         _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true),
         _GridDataCell('$rank', textAlign: TextAlign.center, bold: true),
