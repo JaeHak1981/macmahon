@@ -235,58 +235,64 @@ class _ResultGridTab extends StatelessWidget {
     }
 
     final rounds = state.history.length;
-    const headerRed = Color(0xFFC62828); // 짙은 빨강
+    const headerGreen = Color(0xFFDCEDC8); // 연한 연두색
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Center(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Table(
-                  defaultColumnWidth: const IntrinsicColumnWidth(),
-                  border: TableBorder.all(color: Colors.black, width: 1.0),
-                  children: [
-                    // ── 헤더 1행: 짙은 빨강 배경 ──────────────────────────
-                    TableRow(
-                      decoration: const BoxDecoration(color: headerRed),
-                      children: [
-                        _GridMainHeaderCell('번호', textColor: Colors.white),
-                        _GridMainHeaderCell('이름', textColor: Colors.white, minWidth: 100),
-                        for (int r = 1; r <= rounds; r++) ...[
-                          _GridMainHeaderCell('${r}R', textColor: Colors.white),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minWidth: MediaQuery.of(context).size.width,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Table(
+                    defaultColumnWidth: const IntrinsicColumnWidth(),
+                    border: TableBorder.all(color: Colors.black, width: 1.0),
+                    children: [
+                      // ── 헤더 1행: 연한 연두색 배경 ──────────────────────────
+                      TableRow(
+                        decoration: const BoxDecoration(color: headerGreen),
+                        children: [
+                          _GridMainHeaderCell('번호', textColor: Colors.black),
+                          _GridMainHeaderCell('이름', textColor: Colors.black, minWidth: 100),
+                          for (int r = 1; r <= rounds; r++) ...[
+                            _GridMainHeaderCell('${r}R', textColor: Colors.black),
+                            const SizedBox.shrink(),
+                          ],
+                          _GridMainHeaderCell('초기\nMMS', textColor: Colors.black),
+                          _GridMainHeaderCell('승수', textColor: Colors.black),
+                          _GridMainHeaderCell('순위', textColor: Colors.black),
+                        ],
+                      ),
+                      // ── 헤더 2행: 세부 항목 (상대, 승패) ────────────────
+                      TableRow(
+                        decoration: const BoxDecoration(color: headerGreen),
+                        children: [
+                          const SizedBox.shrink(),
+                          const SizedBox.shrink(),
+                          for (int r = 0; r < rounds; r++) ...[
+                            _GridSubHeaderCell('상대', textColor: Colors.black87),
+                            _GridSubHeaderCell('결과', textColor: Colors.black87),
+                          ],
+                          const SizedBox.shrink(),
+                          const SizedBox.shrink(),
                           const SizedBox.shrink(),
                         ],
-                        _GridMainHeaderCell('초기\nMMS', textColor: Colors.white),
-                        _GridMainHeaderCell('승수', textColor: Colors.white),
-                        _GridMainHeaderCell('순위', textColor: Colors.white),
-                      ],
-                    ),
-                    // ── 헤더 2행: 세부 항목 (상대, 승패) ────────────────
-                    TableRow(
-                      decoration: const BoxDecoration(color: headerRed),
-                      children: [
-                        const SizedBox.shrink(),
-                        const SizedBox.shrink(),
-                        for (int r = 0; r < rounds; r++) ...[
-                          _GridSubHeaderCell('상대', textColor: Colors.white70),
-                          _GridSubHeaderCell('결과', textColor: Colors.white70),
-                        ],
-                        const SizedBox.shrink(),
-                        const SizedBox.shrink(),
-                        const SizedBox.shrink(),
-                      ],
-                    ),
-                    // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
-                    for (int i = 0; i < state.players.length; i++)
-                      _buildDataRow(state.players[i], i + 1, playerNumbers, rounds, playerRanks[state.players[i].id] ?? 0),
-                  ],
-                ),
-              ],
+                      ),
+                      // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
+                      for (int i = 0; i < state.players.length; i++)
+                        _buildDataRow(state.players[i], i + 1, playerNumbers, rounds, playerRanks[state.players[i].id] ?? 0),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -319,7 +325,7 @@ class _ResultGridTab extends StatelessWidget {
       if (roundHistory.byePlayer?.id == player.id) {
         return [
           _GridDataCell('-', textAlign: TextAlign.center),
-          _GridDataCell('부전', color: Colors.blue.shade700, textAlign: TextAlign.center, fontSize: 11),
+          _GridDataCell('● (부전)', color: const Color(0xFFD32F2F), textAlign: TextAlign.center, fontSize: 11, bold: true),
         ];
       }
       return [
@@ -593,8 +599,8 @@ class _StandingsTile extends StatelessWidget {
 
     if (pair == null) {
       if (roundHistory.byePlayer?.id == player.id) {
-        text = '${roundNum}R : 부전';
-        color = Colors.blue;
+        text = '${roundNum}R : 부전승';
+        color = Colors.green;
       } else {
         text = '${roundNum}R : -';
       }
