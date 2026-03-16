@@ -5,6 +5,7 @@ import '../models/macmahon_player.dart';
 import '../models/macmahon_pair.dart';
 import '../providers/macmahon_provider.dart';
 import '../services/export_service.dart';
+import 'package:flutter/services.dart';
 
 class StandingsScreen extends ConsumerWidget {
   final int initialIndex;
@@ -93,8 +94,32 @@ class StandingsScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('내보내기 실패: $e')),
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('내보내기 실패'),
+            content: SingleChildScrollView(
+              child: Text(e.toString()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: e.toString()));
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('오류 내용이 복사되었습니다.')),
+                    );
+                  }
+                },
+                child: const Text('오류 복사'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
         );
       }
     }
