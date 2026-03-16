@@ -58,14 +58,14 @@ class StandingsScreen extends ConsumerWidget {
     final mmsCmp = b.currentMms.compareTo(a.currentMms);
     if (mmsCmp != 0) return mmsCmp;
 
-    // 2. SOS (상대 MMS 합)
-    final sosCmp = b.sos.compareTo(a.sos);
-    if (sosCmp != 0) return sosCmp;
-
-    // 3. 누진점수 (Progressive Score/Cumulative Score)
-    // 초반에 강한 보드에서 버틴 선수에게 우선순위 부여
+    // 2. 누진점수 (Progressive Score/Cumulative Score)
+    // 초반에 강한 보드에서 버틴 선수에게 우선순위 부여 (스위스 리그 방식 선호)
     final cumCmp = b.cumulativeScore.compareTo(a.cumulativeScore);
     if (cumCmp != 0) return cumCmp;
+
+    // 3. SOS (상대 MMS 합)
+    final sosCmp = b.sos.compareTo(a.sos);
+    if (sosCmp != 0) return sosCmp;
 
     // 4. SODOS (이긴 상대의 MMS 합)
     final sodosCmp = b.sodos.compareTo(a.sodos);

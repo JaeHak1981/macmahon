@@ -48,8 +48,8 @@ class ExportService {
         if (i > 0) {
           final prev = players[i - 1];
           bool isSame = player.currentMms == prev.currentMms &&
+              player.cumulativeScore == prev.cumulativeScore && // 누진점수 우선
               player.sos == prev.sos &&
-              player.cumulativeScore == prev.cumulativeScore && // 누진점수 추가
               player.sodos == prev.sodos &&
               !player.defeatedOpponents.contains(prev.id) &&
               !prev.defeatedOpponents.contains(player.id) &&
@@ -64,8 +64,8 @@ class ExportService {
               final p1 = players[j];
               final p2 = players[j - 1];
               bool same = p1.currentMms == p2.currentMms &&
-                  p1.sos == p2.sos &&
                   p1.cumulativeScore == p2.cumulativeScore &&
+                  p1.sos == p2.sos &&
                   p1.sodos == p2.sodos &&
                   !p1.defeatedOpponents.contains(p2.id) &&
                   !p2.defeatedOpponents.contains(p1.id) &&
