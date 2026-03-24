@@ -277,38 +277,67 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     // 히스토리에 현재 대진(결과 포함) 추가
     final updatedHistory = [...state.history, state.currentPairing!];
     
-    // 전체 상태 재계산 (Functional Replay)
-    _recalculateStateFromHistory(updatedHistory);
+    // 전체 상태 재정산 (Atomic Update)
+    final replayedPlayers = _calculatePlayersFromHistory(updatedHistory);
     
-    // 자동 저장
+    state = state.copyWith(
+      players: replayedPlayers,
+      history: updatedHistory,
+      currentRound: updatedHistory.length + 1,
+      currentPairing: null,
+    );
+
+    // SOS 재계산 및 저장
+    computeTieBreakers();
     saveCurrentTournament();
   }
 
   /// 마지막 라운드 취소 (Undo)
   void undoLastRound() {
-    if (state.history.isEmpty) return;
+    MacmahonState newState;
 
-    // 마지막 히스토리 제거
-    final newHistory = List<PairingResult>.from(state.history)..removeLast();
-    
-    // 전체 상태 재계산
-    _recalculateStateFromHistory(newHistory);
+    // 1단계: 만약 현재 라운드 대진표(결과 미확정)가 있다면, 대진표만 삭제
+    if (state.currentPairing != null) {
+      final replayedPlayers = _calculatePlayersFromHistory(state.history);
+      newState = state.copyWith(
+        players: replayedPlayers,
+        currentPairing: null,
+      );
+    } else {
+      // 2단계: 대진표가 없는 상태에서 취소 시, 히스토리의 마지막 라운드를 ‘결과 입력 전’ 상태로 복구
+      if (state.history.isEmpty) return;
+
+      final restoredPairing = state.history.last;
+      final newHistory = state.history.sublist(0, state.history.length - 1);
+      final replayedPlayers = _calculatePlayersFromHistory(newHistory);
+
+      newState = state.copyWith(
+        players: replayedPlayers,
+        history: newHistory,
+        currentRound: newHistory.length + 1,
+        currentPairing: restoredPairing,
+      );
+    }
+
+    state = newState;
+    computeTieBreakers(); // 최종 SOS 정산
+    saveCurrentTournament();
   }
 
-  /// 히스토리를 기반으로 모든 선수의 점수, 상대 기록, SOS를 처음부터 다시 계산합니다.
-  void _recalculateStateFromHistory(List<PairingResult> history) {
-    // 1. 모든 선수 초기화 (initialMms로 복구)
-    var players = state.players.map((p) {
+  /// 히스토리를 기반으로 선수들을 처음부터 다시 시뮬레이션하여 점수를 계산한 리스트를 반환합니다.
+  List<MacmahonPlayer> _calculatePlayersFromHistory(List<PairingResult> history) {
+    // 1. 모든 선수 초기화
+    final players = state.players.map((p) {
       return MacmahonPlayer(
         id: p.id,
         name: p.name,
         initialMms: p.initialMms,
         currentMms: p.initialMms,
         isTopBar: p.isTopBar,
-        opponents: {}, // 명시적으로 비우기
-        defeatedOpponents: {}, 
+        opponents: {},
+        defeatedOpponents: {},
         floatHistory: [],
-        cumulativeScore: 0.0, // 명시적 초기화
+        cumulativeScore: 0.0,
       );
     }).toList();
 
@@ -318,15 +347,11 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         final black = players.firstWhere((p) => p.id == pair.black.id);
         final white = players.firstWhere((p) => p.id == pair.white.id);
 
-        // 상대 기록 추가
         black.addOpponent(white.id);
         white.addOpponent(black.id);
-
-        // 플로팅 기록 추가 (pair 생성 시점의 점수 기준)
         black.floatHistory.add(pair.blackFloatResult);
         white.floatHistory.add(pair.whiteFloatResult);
 
-        // 승패 반영
         if (pair.winnerId == black.id) {
           black.wins++;
           black.currentMms += 1.0;
@@ -338,7 +363,6 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
           white.defeatedOpponents.add(black.id);
           black.losses++;
         } else if (pair.isResultEntered) {
-          // 무승부
           black.draws++;
           black.currentMms += 0.5;
           white.draws++;
@@ -346,7 +370,6 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         }
       }
 
-      // 부전승 처리
       if (roundResult.byePlayer != null) {
         final bye = players.firstWhere((p) => p.id == roundResult.byePlayer!.id);
         bye.currentMms += 1.0;
@@ -354,21 +377,22 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
         bye.floatHistory.add(0);
       }
 
-      // 라운드 종료 시점의 MMS를 누계 (Progressive Score)
       for (final p in players) {
         p.updateCumulativeScore();
       }
     }
+    return players;
+  }
 
-    // 3. 상태 업데이트
+  void _recalculateStateFromHistory(List<PairingResult> history) {
+    // 기존 메서드는 내부적으로 사용하지 않거나 하위 호환을 위해 유지 (이제는 Atomic 업데이트 권중)
+    final newPlayers = _calculatePlayersFromHistory(history);
     state = state.copyWith(
-      players: players,
+      players: newPlayers,
       history: history,
       currentRound: history.length + 1,
       currentPairing: null,
     );
-
-    // 4. SOS 재계산
     computeTieBreakers();
   }
 
