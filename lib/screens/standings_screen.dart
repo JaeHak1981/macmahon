@@ -37,17 +37,29 @@ class StandingsScreen extends ConsumerWidget {
           ),
           actions: [
             IconButton(
+              tooltip: '점수 안내',
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => _showScoreHelpDialog(context),
+            ),
+            IconButton(
               tooltip: '엑셀로 내보내기',
               icon: const Icon(Icons.file_download),
               onPressed: () => _exportToExcel(context, sorted, state.tournamentName),
             ),
           ],
         ),
-        body: TabBarView(
+        body: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: TabBarView(
           children: [
             _RankingsTab(state: state, sorted: sorted),
             _ResultGridTab(state: state, sorted: sorted),
           ],
+        ),
+            ),
+          ),
         ),
       ),
     );
@@ -81,6 +93,42 @@ class StandingsScreen extends ConsumerWidget {
 
     // 7. 총 승수
     return b.wins.compareTo(a.wins);
+  }
+
+  void _showScoreHelpDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('점수 구조 안내', style: TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+        content: const SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('MMS (내 승점)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 16)),
+              SizedBox(height: 4),
+              Text('선수가 이 대회에서 거둔 총 승점(승수)입니다. 똑같이 0점으로 시작한 대회라면, 3승을 했을 때 3점이 됩니다.', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              SizedBox(height: 16),
+              Text('SOS (대진 난이도)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 16)),
+              SizedBox(height: 4),
+              Text('똑같이 3승으로 동점이더라도, 더 어려운 상대들과 싸운 선수를 우대합니다.\n이걸 증명하기 위해 \'내가 만났던 모든 상대들의 승점\'을 합친 타이브레이커 숫자입니다.', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              SizedBox(height: 16),
+              Text('SODOS (승리 순도)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 16)),
+              SizedBox(height: 4),
+              Text('만약 SOS까지 똑같은 초유의 동점 사태가 났을 때, 내가 만난 모든 상대가 아니라 오직 \'내가 직접 이긴 상대\'들의 점수만 합쳐서 최종 우열을 가립니다.', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+            ],
+          ),
+        ),
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('이해했습니다', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _exportToExcel(BuildContext context, List<MacmahonPlayer> sorted, String tournamentName) async {
@@ -300,50 +348,42 @@ class _ResultGridTab extends StatelessWidget {
 
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              minWidth: MediaQuery.of(context).size.width,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Table(
+                defaultColumnWidth: const IntrinsicColumnWidth(),
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                border: TableBorder.all(color: Colors.black, width: 1.0),
                 children: [
-                  Table(
-                    defaultColumnWidth: const IntrinsicColumnWidth(),
-                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                    border: TableBorder.all(color: Colors.black, width: 1.0),
+                  TableRow(
+                    decoration: const BoxDecoration(color: headerGreen),
                     children: [
-                      // ── 헤더 1행: 연한 연두색 배경 ──────────────────────────
-                      // ── 헤더: 이미지와 동일한 병합된 형태 ──────────────────────────
-                      TableRow(
-                        decoration: const BoxDecoration(color: headerGreen),
-                        children: [
-                          _GridMainHeaderCell('번호', textColor: Colors.black),
-                          _GridMainHeaderCell('이름', textColor: Colors.black, minWidth: 100),
-                          for (int r = 1; r <= roundsCount; r++) 
-                            _GridRoundHeader('${r}R'),
-                          _GridMainHeaderCell('초기\nMMS', textColor: Colors.black),
-                          _GridMainHeaderCell('승수', textColor: Colors.black),
-                          _GridMainHeaderCell('MMS', textColor: AppTheme.primary),
-                          _GridMainHeaderCell('SOS', textColor: AppTheme.textSecondary),
-                          _GridMainHeaderCell('순위', textColor: Colors.black),
-                        ],
-                      ),
-                    // ── 데이터 행 (등록 번호 순으로 출력) ─────────────────────
-                    for (final player in state.players)
-                      _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, allRounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
+                      _GridMainHeaderCell('번호', textColor: Colors.black),
+                      _GridMainHeaderCell('이름', textColor: Colors.black, minWidth: 100),
+                      for (int r = 1; r <= roundsCount; r++) 
+                        _GridRoundHeader('${r}R'),
+                      _GridMainHeaderCell('초기\nMMS', textColor: Colors.black),
+                      _GridMainHeaderCell('승수', textColor: Colors.black),
+                      _GridMainHeaderCell('MMS', textColor: AppTheme.primary),
+                      _GridMainHeaderCell('SOS', textColor: AppTheme.textSecondary),
+                      _GridMainHeaderCell('순위', textColor: Colors.black),
                     ],
                   ),
+                  for (final player in state.players)
+                    _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, allRounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
                 ],
               ),
-            ),
+            ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -721,32 +761,35 @@ class _StandingsTile extends StatelessWidget {
 
     if (pair == null) {
       if (roundHistory.byePlayer?.id == player.id) {
-        text = '${roundNum}R : 부전승';
+        text = '${roundNum}R: 부전승';
         color = Colors.green;
       } else {
-        text = '${roundNum}R : -';
+        text = '${roundNum}R: -';
       }
     } else {
       final isBlack = pair.black.id == player.id;
       final opponentId = isBlack ? pair.white.id : pair.black.id;
       final opponentNum = playerNumbers[opponentId] ?? 0;
+      final opponentStr = opponentNum.toString().padLeft(2, '0');
 
       if (!pair.isResultEntered) {
-        text = '${roundNum}R : ? 상대 : $opponentNum';
+        text = '${roundNum}R: $opponentStr번 ?';
       } else if (pair.winnerId == null) {
-        text = '${roundNum}R : 무 상대 : $opponentNum';
+        text = '${roundNum}R: $opponentStr번 무';
         color = Colors.orange;
       } else if (pair.winnerId == player.id) {
-        text = '${roundNum}R : 승 상대 : $opponentNum';
+        text = '${roundNum}R: $opponentStr번 승';
         color = Colors.green;
       } else {
-        text = '${roundNum}R : 패 상대 : $opponentNum';
+        text = '${roundNum}R: $opponentStr번 패';
         color = Colors.red;
       }
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: 78, // 너비 고정
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
@@ -754,8 +797,10 @@ class _StandingsTile extends StatelessWidget {
       ),
       child: Text(
         text,
+        maxLines: 1,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: 11, // 줄바꿈 나지 않게 크기 약간 축소
+          letterSpacing: -0.3,
           fontWeight: FontWeight.w900,
           color: color,
         ),

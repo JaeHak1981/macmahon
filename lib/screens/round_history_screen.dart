@@ -16,7 +16,11 @@ class RoundHistoryScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('매칭 기록'),
       ),
-      body: history.isEmpty
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: history.isEmpty
           ? const Center(
               child: Text('완료된 라운드가 없습니다.',
                   style: TextStyle(color: AppTheme.textSecondary)),
@@ -72,6 +76,9 @@ class RoundHistoryScreen extends ConsumerWidget {
                 );
               },
             ),
+          ),
+        ),
+      ),
     );
   }
 }

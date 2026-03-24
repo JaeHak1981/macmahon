@@ -161,12 +161,40 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     );
   }
 
+  /// 선수 이름 수정
+  void updatePlayerName(String playerId, String newName) {
+    if (newName.trim().isEmpty) return;
+    state = state.copyWith(
+      players: state.players.map((p) {
+        if (p.id == playerId) {
+          return MacmahonPlayer(
+            id: p.id,
+            name: newName.trim(),
+            initialMms: p.initialMms,
+            currentMms: p.currentMms,
+            isTopBar: p.isTopBar,
+            floatHistory: p.floatHistory,
+            opponents: p.opponents,
+            defeatedOpponents: p.defeatedOpponents,
+            wins: p.wins,
+            losses: p.losses,
+            draws: p.draws,
+            sos: p.sos,
+            sodos: p.sodos,
+            cumulativeScore: p.cumulativeScore,
+          );
+        }
+        return p;
+      }).toList(),
+    );
+  }
+
   /// 현재 라운드 페어링 실행
   ///
   /// 1. 비용 행렬 생성
   /// 2. 헝가리안 알고리즘으로 최적 매칭 계산
   /// 3. 상태 업데이트
-  Future<void> generatePairing() async {
+  Future<void> generatePairing({bool isSequentialForR1 = false}) async {
     if (state.players.isEmpty) {
       state = state.copyWith(errorMessage: '선수가 없습니다.');
       return;
@@ -175,11 +203,37 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      // 페어링 계산 (무거운 연산이므로 Future로 처리)
-      final result = await Future(() => _pairingService.generatePairing(
-            players: state.players,
-            round: state.currentRound,
+      PairingResult result;
+
+      if (state.currentRound == 1 && isSequentialForR1) {
+        // ✨ 등록순(1-2, 3-4) 매칭 로직 (무거운 HungarianSolver 건너뜀)
+        final pairs = <MacmahonPair>[];
+        MacmahonPlayer? byePlayer;
+        final workingList = List<MacmahonPlayer>.from(state.players);
+
+        if (workingList.length % 2 != 0) {
+          byePlayer = workingList.removeLast(); // 인원이 홀수면 제일 마지막 등록자를 부전승
+        }
+        for (int i = 0; i < workingList.length; i += 2) {
+          pairs.add(MacmahonPair(
+            black: workingList[i],
+            white: workingList[i + 1],
+            cost: 0,
           ));
+        }
+
+        result = PairingResult(
+          pairs: pairs,
+          round: 1,
+          byePlayer: byePlayer,
+        );
+      } else {
+        // 기존 안티그래비티 매칭 (무거운 연산이므로 Future로 처리)
+        result = await Future(() => _pairingService.generatePairing(
+              players: state.players,
+              round: state.currentRound,
+            ));
+      }
 
       // floatHistory 및 opponents 반영
       _pairingService.applyPairingResult(result);

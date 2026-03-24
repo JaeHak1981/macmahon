@@ -4,11 +4,18 @@ import '../app_theme.dart';
 import '../models/macmahon_pair.dart';
 import '../providers/macmahon_provider.dart';
 
-class PairingScreen extends ConsumerWidget {
+class PairingScreen extends ConsumerStatefulWidget {
   const PairingScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PairingScreen> createState() => _PairingScreenState();
+}
+
+class _PairingScreenState extends ConsumerState<PairingScreen> {
+  bool _isSequentialR1 = false; // 기본값은 무작위
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(macmahonProvider);
     final notifier = ref.read(macmahonProvider.notifier);
 
@@ -19,7 +26,11 @@ class PairingScreen extends ConsumerWidget {
           // '결과 입력' 버튼 제거 (내부 통합됨)
         ],
       ),
-      body: Column(
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
         children: [
           // ── 페어링 실행 버튼 ─────────────────────────
           if (state.currentPairing == null)
@@ -35,18 +46,61 @@ class PairingScreen extends ConsumerWidget {
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    '안티그래비티 규칙을 적용하여\n최적의 대진표를 생성합니다.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppTheme.textSecondary),
-                  ),
+                  if (state.currentRound == 1) ...[
+                    const Text(
+                      '1라운드 매칭 방식을 선택해주세요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.textSecondary),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('무작위 추첨'),
+                          selected: !_isSequentialR1,
+                          selectedColor: AppTheme.primary,
+                          backgroundColor: Colors.grey[200],
+                          checkmarkColor: AppTheme.surface,
+                          labelStyle: TextStyle(
+                            color: !_isSequentialR1 ? AppTheme.surface : AppTheme.textPrimary,
+                            fontWeight: !_isSequentialR1 ? FontWeight.w800 : FontWeight.w500,
+                          ),
+                          onSelected: (val) {
+                            if (val) setState(() => _isSequentialR1 = false);
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(
+                          label: const Text('등록순 매칭 (1-2, 3-4)'),
+                          selected: _isSequentialR1,
+                          selectedColor: AppTheme.primary,
+                          backgroundColor: Colors.grey[200],
+                          checkmarkColor: AppTheme.surface,
+                          labelStyle: TextStyle(
+                            color: _isSequentialR1 ? AppTheme.surface : AppTheme.textPrimary,
+                            fontWeight: _isSequentialR1 ? FontWeight.w800 : FontWeight.w500,
+                          ),
+                          onSelected: (val) {
+                            if (val) setState(() => _isSequentialR1 = true);
+                          },
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    const Text(
+                      '안티그래비티 규칙을 적용하여\n최적의 대진표를 생성합니다.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: state.isLoading
                           ? null
-                          : () => notifier.generatePairing(),
+                          : () => notifier.generatePairing(isSequentialForR1: _isSequentialR1),
                       icon: state.isLoading
                           ? const SizedBox(
                               width: 20,
@@ -149,6 +203,9 @@ class PairingScreen extends ConsumerWidget {
           ],
         ],
       ),
+            ),
+          ),
+        ),
     );
   }
 }

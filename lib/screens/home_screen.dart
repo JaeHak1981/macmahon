@@ -16,122 +16,137 @@ class HomeScreen extends ConsumerWidget {
     final state = ref.watch(macmahonProvider);
 
     return Scaffold(
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text(state.tournamentName.isEmpty ? '맥마흔 시스템' : state.tournamentName),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: false,
+        title: Text(
+          state.tournamentName.isEmpty ? '맥마흔 바둑대회' : state.tournamentName,
+          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -0.5),
+        ),
         actions: [
           IconButton(
-            tooltip: '대회 정보 수정',
-            icon: const Icon(Icons.edit_note),
-            onPressed: () => _showTournamentInfoDialog(context, ref, state),
+            tooltip: '대회 관리',
+            icon: const Icon(Icons.settings_outlined, color: AppTheme.textPrimary),
+            onPressed: () => _showTopMenu(context, ref, state),
           ),
-          if (state.history.isNotEmpty)
-            IconButton(
-              tooltip: '라운드 취소 (Undo)',
-              icon: const Icon(Icons.undo),
-              onPressed: () => _confirmUndo(context, ref),
-            ),
-          if (state.players.isNotEmpty)
-            IconButton(
-              tooltip: '대회 초기화',
-              icon: const Icon(Icons.refresh),
-              onPressed: () => _confirmReset(context, ref),
-            ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── 대회 상태 카드 ────────────────────────────
-            _TournamentStatusCard(state: state),
-            const SizedBox(height: 16),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720), // 태블릿/웹 환경 무한 확장 방지
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── 헤더: 가벼워진 요약 정보 통계 ────────────────
+            _TournamentStatusHeader(state: state),
+            const SizedBox(height: 28),
 
-            // ── 메뉴 버튼들 ───────────────────────────────
-            _MenuButton(
-              icon: Icons.people,
-              label: '선수 등록 / 관리',
-              subtitle: '${state.players.length}명 등록됨',
-              color: AppTheme.primary,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (_) => const PlayerRegistrationScreen()),
+            // ── 다이내믹 가이드라인 (CTA) ─────────────────
+            _CallToActionCard(state: state),
+            const SizedBox(height: 36),
+
+            // ── 섹션 타이틀 & 그리드 메뉴 ──────────────────────
+            const Text(
+              '대회 도구',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+                letterSpacing: -0.3,
               ),
             ),
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.swap_horiz,
-              label: '라운드 ${state.currentRound} 페어링',
-              subtitle: state.currentPairing == null
-                  ? '페어링 생성 전'
-                  : '${state.currentPairs.length}경기 확정',
-              color: AppTheme.primaryLight,
-              onTap: state.players.length >= 2
-                  ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const PairingScreen()),
-                      )
-                  : null,
+            const SizedBox(height: 16),
+            GridView(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 220, // 화면 너비에 따라 자동으로 2열, 3열, 4열배치
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.2,
+              ),
+              children: [
+                _GridMenuButton(
+                  icon: Icons.people_outline,
+                  label: '선수 명단',
+                  subtitle: '${state.players.length}명 등록됨',
+                  color: AppTheme.primary,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PlayerRegistrationScreen()),
+                  ),
+                ),
+                _GridMenuButton(
+                  icon: Icons.swap_horiz,
+                  label: '페어링',
+                  subtitle: '${state.currentRound}R 대진',
+                  color: AppTheme.primary,
+                  onTap: state.players.length >= 2
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const PairingScreen()),
+                          )
+                      : null,
+                ),
+                _GridMenuButton(
+                  icon: Icons.leaderboard_outlined,
+                  label: '순위표',
+                  subtitle: '현재 순위',
+                  color: AppTheme.primary,
+                  onTap: state.players.isNotEmpty
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const StandingsScreen(initialIndex: 0)),
+                          )
+                      : null,
+                ),
+                _GridMenuButton(
+                  icon: Icons.grid_on,
+                  label: '결과표',
+                  subtitle: '공식 기록지',
+                  color: AppTheme.primary,
+                  onTap: state.players.isNotEmpty
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const StandingsScreen(initialIndex: 1)),
+                          )
+                      : null,
+                ),
+                _GridMenuButton(
+                  icon: Icons.history_edu,
+                  label: '라운드 기록',
+                  subtitle: '지난 매치 결과',
+                  color: AppTheme.primaryLight,
+                  onTap: state.history.isNotEmpty
+                      ? () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const RoundHistoryScreen()),
+                          )
+                      : null,
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.leaderboard,
-              label: '순위표',
-              subtitle: 'MMS 기준 현재 순위',
-              color: const Color(0xFF5D4037),
-              onTap: state.players.isNotEmpty
-                  ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const StandingsScreen(initialIndex: 0)),
-                      )
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.grid_on,
-              label: '결과표 (Grid)',
-              subtitle: '대회 공식 기록지 형식',
-              color: const Color(0xFF9E1C22), // 공식 느낌의 어두운 빨강
-              onTap: state.players.isNotEmpty
-                  ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const StandingsScreen(initialIndex: 1)),
-                      )
-                  : null,
-            ),
-            const SizedBox(height: 12),
-            _MenuButton(
-              icon: Icons.history_edu,
-              label: '라운드 기록',
-              subtitle: '지난 라운드 대진 및 결과',
-              color: const Color(0xFF607D8B),
-              onTap: state.history.isNotEmpty
-                  ? () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const RoundHistoryScreen()),
-                      )
-                  : null,
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 36),
 
             // ── 이번 라운드 대진 미리보기 ─────────────────
             if (state.currentPairing != null) ...[
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 8),
-                child: Text(
-                  '이번 라운드 대진',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
+              const Text(
+                '이번 라운드 대진',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary,
+                  letterSpacing: -0.3,
                 ),
               ),
+              const SizedBox(height: 12),
               ...state.currentPairs.map((pair) => _PairPreviewTile(
                     black: pair.black.name,
                     white: pair.white.name,
@@ -141,8 +156,60 @@ class HomeScreen extends ConsumerWidget {
                 _ByeTile(playerName: state.byePlayer!.name),
             ],
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 36),
             const _HistorySection(),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showTopMenu(BuildContext context, WidgetRef ref, MacmahonState state) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('대회 관리', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_note, color: AppTheme.primary),
+              title: const Text('대회 정보 설정'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showTournamentInfoDialog(context, ref, state);
+              },
+            ),
+            if (state.history.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.undo, color: Colors.orange),
+                title: const Text('마지막 라운드 취소'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmUndo(context, ref);
+                },
+              ),
+            if (state.players.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.refresh, color: Colors.red),
+                title: const Text('대회 초기화 (데이터 삭제)'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmReset(context, ref);
+                },
+              ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -252,114 +319,79 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-// ── 위젯: 대회 상태 카드 ────────────────────────────────────
-class _TournamentStatusCard extends StatelessWidget {
+// ── 위젯: 간결해진 대회 상태 헤더 ───────────────────────────
+class _TournamentStatusHeader extends StatelessWidget {
   final MacmahonState state;
-  const _TournamentStatusCard({required this.state});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: AppTheme.primary,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            if (state.tournamentDate.isNotEmpty ||
-                state.tournamentLocation.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (state.tournamentDate.isNotEmpty) ...[
-                      const Icon(Icons.calendar_today,
-                          color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(state.tournamentDate,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 13)),
-                    ],
-                    if (state.tournamentDate.isNotEmpty &&
-                        state.tournamentLocation.isNotEmpty)
-                      const Text(' | ',
-                          style: TextStyle(color: Colors.white38)),
-                    if (state.tournamentLocation.isNotEmpty) ...[
-                      const Icon(Icons.location_on,
-                          color: Colors.white70, size: 14),
-                      const SizedBox(width: 4),
-                      Text(state.tournamentLocation,
-                          style: const TextStyle(
-                              color: Colors.white70, fontSize: 13)),
-                    ],
-                  ],
-                ),
-              ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _StatItem(
-                  label: '선수',
-                  value: '${state.players.length}명',
-                  icon: Icons.people,
-                ),
-                _StatItem(
-                  label: '라운드',
-                  value: '${state.currentRound}R',
-                  subtitle: '(권장: ${state.recommendedRounds}R)',
-                  icon: Icons.flag,
-                ),
-                _StatItem(
-                  label: '완료 라운드',
-                  value: '${state.history.length}R',
-                  icon: Icons.check_circle,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StatItem extends StatelessWidget {
-  final String label;
-  final String value;
-  final String? subtitle;
-  final IconData icon;
-  const _StatItem(
-      {required this.label, required this.value, this.subtitle, required this.icon});
+  const _TournamentStatusHeader({required this.state});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Icon(icon, color: Colors.white70, size: 24),
-        const SizedBox(height: 6),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold)),
-        if (subtitle != null)
-          Text(subtitle!,
-              style: const TextStyle(color: Colors.white, fontSize: 10)),
-        Text(label,
-            style: const TextStyle(color: Colors.white, fontSize: 12)),
+        if (state.tournamentDate.isNotEmpty || state.tournamentLocation.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  '${state.tournamentDate} ${state.tournamentLocation.isNotEmpty ? ' | ${state.tournamentLocation}' : ''}',
+                  style: const TextStyle(color: AppTheme.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(child: _StatBox(icon: Icons.groups, label: '참가 선수', value: '${state.players.length}명')),
+            const SizedBox(width: 12),
+            Expanded(child: _StatBox(icon: Icons.assistant_photo, label: '권장 ${state.recommendedRounds}R', value: '${state.currentRound}R')),
+            const SizedBox(width: 12),
+            Expanded(child: _StatBox(icon: Icons.checklist, label: '완료 매치', value: '${state.history.length}건')),
+          ],
+        ),
       ],
     );
   }
 }
 
-// ── 위젯: 메뉴 버튼 ─────────────────────────────────────────
-class _MenuButton extends StatelessWidget {
+class _StatBox extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  const _StatBox({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: AppTheme.primaryLight, size: 24),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(color: AppTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+}
+
+class _GridMenuButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final String subtitle;
   final Color color;
   final VoidCallback? onTap;
-  const _MenuButton({
+
+  const _GridMenuButton({
     required this.icon,
     required this.label,
     required this.subtitle,
@@ -369,39 +401,142 @@ class _MenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: onTap == null ? 0.4 : 1.0,
-      child: Material(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              children: [
-                Icon(icon, color: Colors.white, size: 28),
-                const SizedBox(width: 16),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold)),
-                    Text(subtitle,
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 13)),
-                  ],
+    final bool isEnabled = onTap != null;
+
+    return Card(
+      color: isEnabled ? color.withValues(alpha: 0.08) : Colors.grey.shade50,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isEnabled ? color.withValues(alpha: 0.15) : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                const Spacer(),
-                const Icon(Icons.chevron_right, color: Colors.white70),
-              ],
-            ),
+                child: Icon(icon, color: isEnabled ? color : Colors.grey.shade400, size: 28),
+              ),
+              const Spacer(),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isEnabled ? AppTheme.textPrimary : Colors.grey.shade500,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: isEnabled ? AppTheme.textSecondary : Colors.grey.shade400,
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── CTA 가이드라인 타일 ────────────────────────────────
+class _CallToActionCard extends StatelessWidget {
+  final MacmahonState state;
+  const _CallToActionCard({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    if (state.players.isEmpty) {
+      return _buildCta(
+        context,
+        icon: Icons.group_add,
+        title: '대회를 시작하려면 먼저 선수를 등록하세요.',
+        buttonText: '선수 등록하기',
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerRegistrationScreen())),
+      );
+    }
+    
+    if (state.currentPairing == null) {
+      return _buildCta(
+        context,
+        icon: Icons.play_circle_fill,
+        title: '선수 ${state.players.length}명 등록 완료. 라운드를 시작할 수 있습니다.',
+        buttonText: '${state.currentRound}라운드 페어링 생성',
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PairingScreen())),
+      );
+    }
+
+    return _buildCta(
+      context,
+      icon: Icons.sports_score,
+      title: '현재 ${state.currentRound}라운드 가 진행 중입니다.',
+      buttonText: '결과 입력 / 페어링 보기',
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PairingScreen())),
+    );
+  }
+
+  Widget _buildCta(BuildContext context, {required IconData icon, required String title, required String buttonText, required VoidCallback onTap}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.primary,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primary.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppTheme.primary,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: onTap,
+              child: Text(buttonText, style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          )
+        ],
       ),
     );
   }
@@ -419,6 +554,12 @@ class _PairPreviewTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+      elevation: 0,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -426,23 +567,24 @@ class _PairPreviewTile extends StatelessWidget {
             _StoneChip(label: '흑', isBlack: true),
             const SizedBox(width: 8),
             Text(black,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const Spacer(),
-            const Text('vs',
-                style: TextStyle(color: AppTheme.textSecondary)),
+            Text('vs',
+                style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w600, fontSize: 13)),
             const Spacer(),
             Text(white,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(width: 8),
             _StoneChip(label: '백', isBlack: false),
             if (mmsDiff > 0) ...[
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.floatDown.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
+                  color: AppTheme.floatDown.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.floatDown.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   '±${mmsDiff.toStringAsFixed(0)}',
@@ -473,21 +615,18 @@ class _StoneChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: isBlack ? AppTheme.black : AppTheme.white,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.grey.shade400),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black26,
-              blurRadius: 2,
-              offset: const Offset(1, 1))
-        ],
+        border: Border.all(color: isBlack ? Colors.transparent : Colors.grey.shade300, width: 1.5),
+        boxShadow: isBlack 
+            ? [BoxShadow(color: AppTheme.black.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(1, 2))]
+            : [BoxShadow(color: Colors.grey.shade100, blurRadius: 2, offset: const Offset(1, 1))],
       ),
       child: Center(
         child: Text(
           label,
           style: TextStyle(
-            color: isBlack ? Colors.white : Colors.black54,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            color: isBlack ? Colors.white : Colors.black87,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
           ),
         ),
       ),
@@ -504,20 +643,32 @@ class _ByeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
-      color: AppTheme.byeColor.withValues(alpha: 0.1),
+      elevation: 0,
+      color: AppTheme.byeColor.withValues(alpha: 0.05),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.byeColor.withValues(alpha: 0.2)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            const Icon(Icons.airline_seat_flat,
-                color: AppTheme.byeColor, size: 20),
-            const SizedBox(width: 8),
+            Icon(Icons.airline_seat_flat,
+                color: AppTheme.byeColor.withValues(alpha: 0.7), size: 20),
+            const SizedBox(width: 12),
             Text(playerName,
-                style: const TextStyle(fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimary)),
             const Spacer(),
-            const Text('부전승',
-                style: TextStyle(
-                    color: AppTheme.byeColor, fontWeight: FontWeight.bold)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.byeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text('부전승 (Bye)',
+                  style: TextStyle(
+                      color: AppTheme.textSecondary, fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
           ],
         ),
       ),
@@ -535,25 +686,30 @@ class _HistorySection extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            '최근 대회 기록',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
-            ),
+        const Text(
+          '최근 완료된 대회 기록',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textPrimary,
+            letterSpacing: -0.3,
           ),
         ),
+        const SizedBox(height: 16),
         historyAsync.when(
           data: (tournaments) {
             if (tournaments.isEmpty) {
-              return const Center(
+              return Center(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Text('저장된 기록이 없습니다.',
-                      style: TextStyle(color: AppTheme.textSecondary)),
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Column(
+                    children: [
+                      Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text('저장된 라운드 기록이 없습니다.',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                    ],
+                  ),
                 ),
               );
             }

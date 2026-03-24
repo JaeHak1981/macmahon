@@ -56,8 +56,12 @@ class _PlayerRegistrationScreenState
       appBar: AppBar(
         title: Text('선수 등록 (${players.length}명)'),
       ),
-      body: Column(
-        children: [
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: Column(
+              children: [
           // ── 입력 폼 ───────────────────────────────────
           Container(
             color: AppTheme.surface,
@@ -134,10 +138,9 @@ class _PlayerRegistrationScreenState
                       ],
                     ),
                   )
-                : ReorderableListView.builder(
+                : ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: players.length,
-                    onReorder: (_, __) {}, // 순서 변경은 MMS로 자동 정렬
                     itemBuilder: (context, index) {
                       final player = players[index];
                       return _PlayerTile(
@@ -147,9 +150,48 @@ class _PlayerRegistrationScreenState
                         onDelete: () => ref
                             .read(macmahonProvider.notifier)
                             .removePlayer(player.id),
+                        onEdit: () => _editPlayerName(context, player, ref.read(macmahonProvider.notifier)),
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+            ),
+          ),
+        ),
+    );
+  }
+
+  void _editPlayerName(BuildContext context, MacmahonPlayer player, MacmahonNotifier notifier) {
+    final controller = TextEditingController(text: player.name);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('선수 이름 수정', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: '이름',
+            border: OutlineInputBorder(),
+          ),
+          autofocus: true,
+          onSubmitted: (val) {
+            notifier.updatePlayerName(player.id, val);
+            Navigator.pop(context);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              notifier.updatePlayerName(player.id, controller.text);
+              Navigator.pop(context);
+            },
+            child: const Text('저장'),
           ),
         ],
       ),
@@ -161,12 +203,14 @@ class _PlayerTile extends StatelessWidget {
   final MacmahonPlayer player;
   final int rank;
   final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   const _PlayerTile({
     super.key,
     required this.player,
     required this.rank,
     required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -227,6 +271,10 @@ class _PlayerTile extends StatelessWidget {
                   )).toList();
                 })(),
               ),
+            IconButton(
+              icon: const Icon(Icons.edit, color: AppTheme.textSecondary),
+              onPressed: onEdit,
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: onDelete,
