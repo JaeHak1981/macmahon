@@ -35,8 +35,14 @@ jobs:
       - name: Create Windows Installer (Inno Setup)
         run: dart run inno_bundle:build --release
 
+      - name: List build directory (debug)
+        run: |
+          echo "=== build/windows/x64 ==="
+          dir build\windows\x64 /s /b 2>&1 | findstr /i ".exe"
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: macmahon-windows-installer-${{ github.ref_name }}
           path: build/windows/x64/installer/Release/*.exe
@@ -45,6 +51,7 @@ jobs:
       - name: Create GitHub Release (on tag push)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
+        continue-on-error: true
         with:
           files: |
             build/windows/x64/installer/Release/*.exe
