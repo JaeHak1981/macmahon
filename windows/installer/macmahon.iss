@@ -3,7 +3,6 @@
 #define MyAppPublisher "JaeHak"
 #define MyAppURL "https://github.com/JaeHak1981/macmahon"
 #define MyAppExeName "macmahon.exe"
-#define MyBuildDir "..\..\..\..\build\windows\x64\runner\Release"
 
 [Setup]
 AppId={{B0A1C2D3-E4F5-6789-ABCD-EF0123456789}
@@ -16,7 +15,7 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
-OutputDir=Output
+OutputDir={#SourcePath}
 OutputBaseFilename=macmahon-setup
 Compression=lzma
 SolidCompression=yes
@@ -31,8 +30,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#MyBuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyBuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#BuildDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
