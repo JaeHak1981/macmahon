@@ -32,29 +32,31 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
-      - name: Create Windows Installer (Inno Setup)
-        run: dart run inno_bundle:build --release
+      - name: Build Inno Setup script
+        run: dart run inno_bundle:build --no-app --release --no-installer
 
-      - name: List build directory (debug)
-        run: |
-          echo "=== build/windows/x64 ==="
-          dir build\windows\x64 /s /b 2>&1 | findstr /i ".exe"
+      - name: Output config into github output
+        id: envs
+        run: echo $(dart run inno_bundle:build --envs --no-hf) | Out-File -FilePath $Env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: ./build/windows/x64/installer/Release/inno-script.iss
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
-        continue-on-error: true
         with:
           name: macmahon-windows-installer-${{ github.ref_name }}
-          path: build/windows/x64/installer/Release/*.exe
+          path: ./build/windows/x64/installer/Release/${{ steps.envs.outputs.APP_NAME_CAMEL_CASE }}-x86_64-${{ steps.envs.outputs.APP_VERSION }}-Installer.exe
           retention-days: 30
 
       - name: Create GitHub Release (on tag push)
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
-        continue-on-error: true
         with:
           files: |
-            build/windows/x64/installer/Release/*.exe
+            ./build/windows/x64/installer/Release/${{ steps.envs.outputs.APP_NAME_CAMEL_CASE }}-x86_64-${{ steps.envs.outputs.APP_VERSION }}-Installer.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
