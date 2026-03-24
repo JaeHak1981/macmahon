@@ -32,15 +32,14 @@ jobs:
       - name: Build Windows release
         run: flutter build windows --release
 
-      - name: Compress Windows build
-        run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath build/windows/x64/runner/Release/macmahon-windows.zip
+      - name: Create Windows Installer (Inno Setup)
+        run: dart run inno_bundle:build --release
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: macmahon-windows-${{ github.ref_name }}
-          path: build/windows/x64/runner/Release/macmahon-windows.zip
+          name: macmahon-windows-installer-${{ github.ref_name }}
+          path: build/windows/x64/installer/Release/*.exe
           retention-days: 30
 
       - name: Create GitHub Release (on tag push)
@@ -48,7 +47,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            build/windows/x64/runner/Release/macmahon-windows.zip
+            build/windows/x64/installer/Release/*.exe
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

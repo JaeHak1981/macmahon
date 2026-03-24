@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 2.6.0+16
+version: 2.6.0+17
 
 environment:
   sdk: ^3.8.1
@@ -51,12 +51,26 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.13.1
+  inno_bundle: ^0.8.2
 
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon/app_icon.png"
   min_sdk_android: 21
+
+inno_bundle:
+  name: "macmahon"
+  description: "Macmahon Tournament Manager"
+  id: "com.jaehak.macmahon"
+  publisher: "JaeHak"
+  url: "https://github.com/JaeHak1981/macmahon"
+  image: "assets/icon/app_icon.png"
+  executable_name: "macmahon"
+  admin: false
+  languages:
+    - english
+    - korean
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
