@@ -293,34 +293,25 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
   }
 
   /// 마지막 라운드 취소 (Undo)
+  /// 마지막 라운드 취소 (Undo)
+  ///
+  /// currentPairing 여부와 무관하게 항상 히스토리 마지막을 대진표로 복구합니다.
+  /// 2라운드 대진표 -> 취소 -> 1라운드 결과 수정 화면으로 바로 이동
   void undoLastRound() {
-    MacmahonState newState;
+    if (state.history.isEmpty) return;
 
-    // 1단계: 만약 현재 라운드 대진표(결과 미확정)가 있다면, 대진표만 삭제
-    if (state.currentPairing != null) {
-      final replayedPlayers = _calculatePlayersFromHistory(state.history);
-      newState = state.copyWith(
-        players: replayedPlayers,
-        currentPairing: null,
-      );
-    } else {
-      // 2단계: 대진표가 없는 상태에서 취소 시, 히스토리의 마지막 라운드를 ‘결과 입력 전’ 상태로 복구
-      if (state.history.isEmpty) return;
+    final restoredPairing = state.history.last;
+    final newHistory = state.history.sublist(0, state.history.length - 1);
+    final replayedPlayers = _calculatePlayersFromHistory(newHistory);
 
-      final restoredPairing = state.history.last;
-      final newHistory = state.history.sublist(0, state.history.length - 1);
-      final replayedPlayers = _calculatePlayersFromHistory(newHistory);
+    state = state.copyWith(
+      players: replayedPlayers,
+      history: newHistory,
+      currentRound: newHistory.length + 1,
+      currentPairing: restoredPairing,
+    );
 
-      newState = state.copyWith(
-        players: replayedPlayers,
-        history: newHistory,
-        currentRound: newHistory.length + 1,
-        currentPairing: restoredPairing,
-      );
-    }
-
-    state = newState;
-    computeTieBreakers(); // 최종 SOS 정산
+    computeTieBreakers();
     saveCurrentTournament();
   }
 
