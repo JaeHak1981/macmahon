@@ -22,8 +22,13 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('라운드 ${state.currentRound} 대진표'),
-        actions: const [
-          // '결과 입력' 버튼 제거 (내부 통합됨)
+        actions: [
+          if (state.history.isNotEmpty || state.currentPairing != null)
+            IconButton(
+              tooltip: '이전 단계로 (라운드 취소)',
+              icon: const Icon(Icons.undo),
+              onPressed: () => _showUndoConfirmDialog(context, notifier),
+            ),
         ],
       ),
       body: SafeArea(
@@ -206,6 +211,29 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
             ),
           ),
         ),
+    );
+  }
+
+  void _showUndoConfirmDialog(BuildContext context, MacmahonNotifier notifier) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('라운드 취소', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text('현재 대진표 또는 이전 라운드 결과를 취소하고 이전 단계로 돌아가시겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('아니오'),
+          ),
+          TextButton(
+            onPressed: () {
+              notifier.undoLastRound();
+              Navigator.pop(context);
+            },
+            child: const Text('예, 돌아갑니다', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }
