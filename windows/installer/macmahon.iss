@@ -1,5 +1,5 @@
 #define MyAppName "Macmahon"
-#define MyAppVersion "2.6.0.26"
+#define MyAppVersion "2.6.0.27"
 #define MyAppPublisher "JaeHak"
 #define MyAppURL "https://github.com/JaeHak1981/macmahon"
 #define MyAppExeName "macmahon.exe"
