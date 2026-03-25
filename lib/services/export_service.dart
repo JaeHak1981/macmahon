@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/macmahon_player.dart';
+import '../models/macmahon_pair.dart';
 
 /// 맥마흔 토너먼트 결과 엑셀 내보내기 서비스
 class ExportService {
@@ -9,20 +10,29 @@ class ExportService {
   /// 
   /// [players]: 정렬된 선수 목록
   /// [tournamentName]: 대회 명칭 (파일명에 사용)
+  /// [history]: 모든 라운드 대진 기록
+  /// [playerNumbers]: 선수별 고유 번호 맵
   static Future<String?> exportToExcel(
     List<MacmahonPlayer> players,
-    String tournamentName,
-  ) async {
+    String tournamentName, {
+    List<PairingResult> history = const [],
+    Map<String, int> playerNumbers = const {},
+  }) async {
     try {
       final excel = Excel.createExcel();
       final sheetName = 'Standings';
       excel.rename('Sheet1', sheetName);
       final sheet = excel[sheetName];
 
+      final roundsCount = history.length;
+
       // ── 헤더 추가 ──────────────────────────────────────────
       final headers = [
         'Rank',
+        'No',
         'Name',
+        // 라운드별 헤더 추가
+        for (int r = 1; r <= roundsCount; r++) ...['${r}R Opponent', '${r}R Result'],
         'MMS',
         'SOS',
         'SODOS',
@@ -35,20 +45,18 @@ class ExportService {
       for (var i = 0; i < headers.length; i++) {
         var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
         cell.value = TextCellValue(headers[i]);
-        // 간단한 스타일 적용 (볼드 등은 패키지 버전에 따라 다를 수 있음)
       }
 
       // ── 데이터 추가 ────────────────────────────────────────
-      // 공동 순위 계산을 포함하여 데이터 작성
       for (var i = 0; i < players.length; i++) {
         final player = players[i];
         
-        // 순위 계산 로직 (StandingsScreen과 동일하게 적용)
+        // 순위 계산
         int displayRank = 1;
         if (i > 0) {
           final prev = players[i - 1];
           bool isSame = player.currentMms == prev.currentMms &&
-              player.cumulativeScore == prev.cumulativeScore && // 누진점수 우선
+              player.cumulativeScore == prev.cumulativeScore &&
               player.sos == prev.sos &&
               player.sodos == prev.sodos &&
               !player.defeatedOpponents.contains(prev.id) &&
@@ -57,9 +65,6 @@ class ExportService {
               player.wins == prev.wins;
 
           if (isSame) {
-            // 앞 선수와 동일 순위라면 i 위치를 직접 찾지 않고 이전 순위 재사용이 필요하나, 
-            // 여기서는 단순화하여 i=0부터 다시 체크하거나 캐싱 가능.
-            // 일단 정확한 로직을 위해 다시 루프
             for (int j = i; j > 0; j--) {
               final p1 = players[j];
               final p2 = players[j - 1];
@@ -82,22 +87,61 @@ class ExportService {
         }
 
         final rowIndex = i + 1;
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value = IntCellValue(displayRank);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value = TextCellValue(player.name);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value = DoubleCellValue(player.currentMms);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value = DoubleCellValue(player.sos);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex)).value = DoubleCellValue(player.sodos);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex)).value = DoubleCellValue(player.cumulativeScore);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex)).value = IntCellValue(player.wins);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex)).value = IntCellValue(player.losses);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
+        int colIndex = 0;
+
+        // 기본 정보
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(displayRank);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(playerNumbers[player.id] ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(player.name);
+
+        // 라운드별 데이터
+        for (int r = 0; r < roundsCount; r++) {
+          final roundResult = history[r];
+          String opponentStr = '-';
+          String resultStr = '-';
+
+          MacmahonPair? pair;
+          try {
+            pair = roundResult.pairs.firstWhere((p) => p.black.id == player.id || p.white.id == player.id);
+          } catch (_) {
+            pair = null;
+          }
+
+          if (pair != null) {
+            final opponentId = (pair.black.id == player.id) ? pair.white.id : pair.black.id;
+            opponentStr = (playerNumbers[opponentId] ?? 0).toString();
+            
+            if (pair.isResultEntered) {
+              if (pair.winnerId == null) {
+                resultStr = 'Draw';
+              } else if (pair.winnerId == player.id) {
+                resultStr = 'Win';
+              } else {
+                resultStr = 'Loss';
+              }
+            }
+          } else if (roundResult.byePlayer?.id == player.id) {
+            opponentStr = 'BYE';
+            resultStr = 'Win';
+          }
+
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(opponentStr);
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(resultStr);
+        }
+
+        // 집계 정보
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.currentMms);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.sos);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.sodos);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.cumulativeScore);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.wins);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.losses);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
       }
 
       // ── 파일 저장 ──────────────────────────────────────────
       final fileName = '${tournamentName.replaceAll(' ', '_')}_results.xlsx';
       
-      // 데스크탑/모바일 환경에 따라 다르게 처리할 수 있으나, 
-      // 사용자에게 위치를 묻는 file_picker 방식이 가장 범용적임
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: '엑셀 결과 저장',
         fileName: fileName,
@@ -105,9 +149,8 @@ class ExportService {
         allowedExtensions: ['xlsx'],
       );
 
-      if (outputFile == null) return null; // 취소됨
+      if (outputFile == null) return null;
 
-      // 확장자 자동 추가 처리 (일부 플랫폼 대응)
       if (!outputFile.endsWith('.xlsx')) {
         outputFile = '$outputFile.xlsx';
       }

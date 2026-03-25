@@ -44,14 +44,14 @@ class StandingsScreen extends ConsumerWidget {
             IconButton(
               tooltip: '엑셀로 내보내기',
               icon: const Icon(Icons.file_download),
-              onPressed: () => _exportToExcel(context, sorted, state.tournamentName),
+              onPressed: () => _exportToExcel(context, sorted, state.tournamentName, state.history, _getPlayerNumbers(state.players)),
             ),
           ],
         ),
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1000),
+              constraints: const BoxConstraints(maxWidth: 1200), // 최대 너비 상향 (1000 -> 1200)
               child: TabBarView(
           children: [
             _RankingsTab(state: state, sorted: sorted),
@@ -131,10 +131,12 @@ class StandingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _exportToExcel(BuildContext context, List<MacmahonPlayer> sorted, String tournamentName) async {
+  Future<void> _exportToExcel(BuildContext context, List<MacmahonPlayer> sorted, String tournamentName, List<PairingResult> history, Map<String, int> playerNumbers) async {
     try {
       final path = await ExportService.exportToExcel(
-          sorted, tournamentName.isEmpty ? 'macmahon_tournament' : tournamentName);
+          sorted, tournamentName.isEmpty ? 'macmahon_tournament' : tournamentName,
+          history: history,
+          playerNumbers: playerNumbers);
       if (path != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('엑셀 파일이 저장되었습니다: $path')),
@@ -171,6 +173,14 @@ class StandingsScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Map<String, int> _getPlayerNumbers(List<MacmahonPlayer> players) {
+    final playerNumbers = <String, int>{};
+    for (int i = 0; i < players.length; i++) {
+      playerNumbers[players[i].id] = i + 1;
+    }
+    return playerNumbers;
   }
 }
 
@@ -346,9 +356,10 @@ class _ResultGridTab extends StatelessWidget {
     final roundsCount = allRounds.length;
     const headerGreen = Color(0xFFDCEDC8); // 연한 연두색
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.vertical,
-      child: Center(
+    return Scrollbar(
+      thumbVisibility: true,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.vertical,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Padding(
@@ -376,7 +387,7 @@ class _ResultGridTab extends StatelessWidget {
                       _GridMainHeaderCell('순위', textColor: Colors.black),
                     ],
                   ),
-                  for (final player in state.players)
+                  for (final player in sorted) // sorted를 사용하여 순위순으로 표시
                     _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, allRounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
                 ],
               ),
