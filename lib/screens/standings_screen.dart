@@ -7,19 +7,37 @@ import '../providers/macmahon_provider.dart';
 import '../services/export_service.dart';
 import 'package:flutter/services.dart';
 
-class StandingsScreen extends ConsumerWidget {
+class StandingsScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   const StandingsScreen({super.key, this.initialIndex = 0});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StandingsScreen> createState() => _StandingsScreenState();
+}
+
+class _StandingsScreenState extends ConsumerState<StandingsScreen> {
+  final ScrollController _verticalController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
+
+  @override
+  void dispose() {
+    _verticalController.dispose();
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(macmahonProvider);
 
     // MMS > SOS > SODOS > 승자승 > 초기 MMS > 승수 기준 내림차순 정렬
     final sorted = [...state.players]..sort(_comparePlayers);
 
+    final playerNumbers = _getPlayerNumbers(state.players);
+    final playerRanks = _calculateRanks(sorted);
+
     return DefaultTabController(
-      initialIndex: initialIndex,
+      initialIndex: widget.initialIndex,
       length: 2,
       child: Scaffold(
         appBar: AppBar(
@@ -44,25 +62,59 @@ class StandingsScreen extends ConsumerWidget {
             IconButton(
               tooltip: '엑셀로 내보내기',
               icon: const Icon(Icons.file_download),
-              onPressed: () => _exportToExcel(context, sorted, state.tournamentName, state.history, _getPlayerNumbers(state.players)),
+              onPressed: () => _exportToExcel(context, sorted, state.tournamentName, state.history, playerNumbers),
             ),
           ],
         ),
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1200), // 최대 너비 상향 (1000 -> 1200)
+              constraints: const BoxConstraints(maxWidth: 1200),
               child: TabBarView(
-          children: [
-            _RankingsTab(state: state, sorted: sorted),
-            _ResultGridTab(state: state, sorted: sorted),
-          ],
-        ),
+                children: [
+                  _RankingsTab(state: state, sorted: sorted, playerNumbers: playerNumbers, playerRanks: playerRanks),
+                  _ResultGridTab(
+                    state: state, 
+                    sorted: sorted, 
+                    playerNumbers: playerNumbers,
+                    playerRanks: playerRanks,
+                    verticalController: _verticalController,
+                    horizontalController: _horizontalController,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Map<String, int> _calculateRanks(List<MacmahonPlayer> sorted) {
+    final playerRanks = <String, int>{};
+    for (int i = 0; i < sorted.length; i++) {
+      final p = sorted[i];
+      if (i > 0) {
+        final prev = sorted[i - 1];
+        bool isSame = p.currentMms == prev.currentMms &&
+            p.sos == prev.sos &&
+            p.cumulativeScore == prev.cumulativeScore &&
+            p.sodos == prev.sodos &&
+            !p.defeatedOpponents.contains(prev.id) &&
+            !prev.defeatedOpponents.contains(p.id) &&
+            p.initialMms == prev.initialMms &&
+            p.wins == prev.wins;
+        
+        if (isSame) {
+          playerRanks[p.id] = playerRanks[prev.id]!;
+        } else {
+          playerRanks[p.id] = i + 1;
+        }
+      } else {
+        playerRanks[p.id] = 1;
+      }
+    }
+    return playerRanks;
   }
 
   int _comparePlayers(MacmahonPlayer a, MacmahonPlayer b) {
@@ -187,17 +239,20 @@ class StandingsScreen extends ConsumerWidget {
 class _RankingsTab extends StatelessWidget {
   final MacmahonState state;
   final List<MacmahonPlayer> sorted;
-  const _RankingsTab({required this.state, required this.sorted});
+  final Map<String, int> playerNumbers;
+  final Map<String, int> playerRanks;
+
+  const _RankingsTab({
+    required this.state, 
+    required this.sorted,
+    required this.playerNumbers,
+    required this.playerRanks,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (sorted.isEmpty) {
       return const Center(child: Text('선수가 없습니다.', style: TextStyle(color: Colors.grey)));
-    }
-
-    final playerNumbers = <String, int>{};
-    for (int i = 0; i < state.players.length; i++) {
-      playerNumbers[state.players[i].id] = i + 1;
     }
 
     return Column(
@@ -236,28 +291,7 @@ class _RankingsTab extends StatelessWidget {
             itemCount: sorted.length,
             itemBuilder: (context, index) {
               final player = sorted[index];
-
-              int displayRank = 1;
-              if (index > 0) {
-                for (int i = index; i > 0; i--) {
-                  final p1 = sorted[index];
-                  final p2 = sorted[i - 1];
-
-                  bool isSame = p1.currentMms == p2.currentMms &&
-                      p1.sos == p2.sos &&
-                      p1.cumulativeScore == p2.cumulativeScore && // 누진점수 추가
-                      p1.sodos == p2.sodos &&
-                      !p1.defeatedOpponents.contains(p2.id) &&
-                      !p2.defeatedOpponents.contains(p1.id) &&
-                      p1.initialMms == p2.initialMms &&
-                      p1.wins == p2.wins;
-
-                  if (!isSame) {
-                    displayRank = i + 1;
-                    break;
-                  }
-                }
-              }
+              final displayRank = playerRanks[player.id] ?? (index + 1);
 
               final isTopThree = displayRank <= 3;
               return _StandingsTile(
@@ -278,18 +312,24 @@ class _RankingsTab extends StatelessWidget {
 class _ResultGridTab extends StatelessWidget {
   final MacmahonState state;
   final List<MacmahonPlayer> sorted;
+  final Map<String, int> playerNumbers;
+  final Map<String, int> playerRanks;
+  final ScrollController verticalController;
+  final ScrollController horizontalController;
 
-  const _ResultGridTab({required this.state, required this.sorted});
+  const _ResultGridTab({
+    required this.state, 
+    required this.sorted,
+    required this.playerNumbers,
+    required this.playerRanks,
+    required this.verticalController,
+    required this.horizontalController,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (sorted.isEmpty) {
       return const Center(child: Text('선수가 없습니다.', style: TextStyle(color: Colors.grey)));
-    }
-
-    final playerNumbers = <String, int>{};
-    for (int i = 0; i < state.players.length; i++) {
-      playerNumbers[state.players[i].id] = i + 1;
     }
 
     // 선수별 라운드 종료 후 MMS 히스토리 계산
@@ -303,7 +343,6 @@ class _ResultGridTab extends StatelessWidget {
       for (final p in state.players) {
         double current = playerMmsByRound[p.id]!.last;
         
-        // 해당 라운드 대진 찾기
         MacmahonPair? pair;
         try {
           pair = roundResult.pairs.firstWhere((pair) => pair.black.id == p.id || pair.white.id == p.id);
@@ -324,77 +363,64 @@ class _ResultGridTab extends StatelessWidget {
       }
     }
 
-    // 선수별 순위 미리 계산 (동순위 처리 포함)
-    final playerRanks = <String, int>{};
-    for (int i = 0; i < sorted.length; i++) {
-      final p = sorted[i];
-      if (i > 0) {
-        final prev = sorted[i - 1];
-        bool isSame = p.currentMms == prev.currentMms &&
-            p.sos == prev.sos &&
-            p.cumulativeScore == prev.cumulativeScore &&
-            p.sodos == prev.sodos &&
-            !p.defeatedOpponents.contains(prev.id) &&
-            !prev.defeatedOpponents.contains(p.id) &&
-            p.initialMms == prev.initialMms &&
-            p.wins == prev.wins;
-        
-        if (isSame) {
-          playerRanks[p.id] = playerRanks[prev.id]!;
-        } else {
-          playerRanks[p.id] = i + 1;
-        }
-      } else {
-        playerRanks[p.id] = 1;
-      }
-    }
-
     final allRounds = [...state.history];
     if (state.currentPairing != null) {
       allRounds.add(state.currentPairing!);
     }
     final roundsCount = allRounds.length;
-    const headerGreen = Color(0xFFDCEDC8); // 연한 연두색
+    const headerGreen = Color(0xFFDCEDC8);
 
     return Scrollbar(
+      controller: verticalController,
       thumbVisibility: true,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
+      child: Scrollbar(
+        controller: horizontalController,
+        thumbVisibility: true,
+        notificationPredicate: (notif) => notif.depth == 1,
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Table(
-                defaultColumnWidth: const IntrinsicColumnWidth(),
+          controller: verticalController,
+          scrollDirection: Axis.vertical,
+          child: SingleChildScrollView(
+            controller: horizontalController,
+            scrollDirection: Axis.horizontal,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Table(
+                columnWidths: {
+                  0: const FixedColumnWidth(40),   // 번호
+                  1: const FixedColumnWidth(100),  // 이름
+                  for (int r = 0; r < roundsCount; r++) 
+                    r + 2: const FixedColumnWidth(121), // 라운드별 (60+1+60)
+                  roundsCount + 2: const FixedColumnWidth(60), // 초기 MMS
+                  roundsCount + 3: const FixedColumnWidth(60), // 승수
+                  roundsCount + 4: const FixedColumnWidth(60), // MMS
+                  roundsCount + 5: const FixedColumnWidth(60), // SOS
+                  roundsCount + 6: const FixedColumnWidth(60), // 순위
+                },
                 defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                 border: TableBorder.all(color: Colors.black, width: 1.0),
                 children: [
                   TableRow(
                     decoration: const BoxDecoration(color: headerGreen),
                     children: [
-                      _GridMainHeaderCell('번호', textColor: Colors.black),
+                      _GridMainHeaderCell('번호', textColor: Colors.black, minWidth: 40),
                       _GridMainHeaderCell('이름', textColor: Colors.black, minWidth: 100),
                       for (int r = 1; r <= roundsCount; r++) 
                         _GridRoundHeader('${r}R'),
-                      _GridMainHeaderCell('초기\nMMS', textColor: Colors.black),
-                      _GridMainHeaderCell('승수', textColor: Colors.black),
-                      _GridMainHeaderCell('MMS', textColor: AppTheme.primary),
-                      _GridMainHeaderCell('SOS', textColor: AppTheme.textSecondary),
-                      _GridMainHeaderCell('순위', textColor: Colors.black),
+                      _GridMainHeaderCell('초기\nMMS', textColor: Colors.black, minWidth: 60),
+                      _GridMainHeaderCell('승수', textColor: Colors.black, minWidth: 60),
+                      _GridMainHeaderCell('MMS', textColor: AppTheme.primary, minWidth: 60),
+                      _GridMainHeaderCell('SOS', textColor: AppTheme.textSecondary, minWidth: 60),
+                      _GridMainHeaderCell('순위', textColor: Colors.black, minWidth: 60),
                     ],
                   ),
-                  for (final player in sorted) // sorted를 사용하여 순위순으로 표시
+                  for (final player in sorted)
                     _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, allRounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
                 ],
               ),
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }
