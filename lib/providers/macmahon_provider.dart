@@ -147,10 +147,17 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     );
   }
 
-  /// 선수 추가
+  /// 선수 추가 (단일)
   void addPlayer(MacmahonPlayer player) {
     state = state.copyWith(
       players: [...state.players, player],
+    );
+  }
+
+  /// 선수 추가 (다수 일괄 등록)
+  void addPlayers(List<MacmahonPlayer> newPlayers) {
+    state = state.copyWith(
+      players: [...state.players, ...newPlayers],
     );
   }
 

@@ -168,4 +168,72 @@ class ExportService {
       rethrow;
     }
   }
+
+  /// 엑셀 파일로부터 선수 명단을 가져옵니다.
+  static Future<List<MacmahonPlayer>> importPlayersFromExcel() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx'],
+      );
+
+      if (result == null || result.files.isEmpty) return [];
+
+      final bytes = result.files.first.bytes;
+      if (bytes == null) {
+        final file = File(result.files.first.path!);
+        final excel = Excel.decodeBytes(file.readAsBytesSync());
+        return _parseExcelToPlayers(excel);
+      } else {
+        final excel = Excel.decodeBytes(bytes);
+        return _parseExcelToPlayers(excel);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  static List<MacmahonPlayer> _parseExcelToPlayers(Excel excel) {
+    final List<MacmahonPlayer> players = [];
+    final sheet = excel.tables[excel.tables.keys.first];
+
+    if (sheet == null) return [];
+
+    // 데이터 행 시작 (첫 번째 행은 헤더로 간주하고 건너뜀)
+    for (int i = 1; i < sheet.maxRows; i++) {
+      final row = sheet.rows[i];
+      if (row.isEmpty) continue;
+
+      // 이름 (필수)
+      final nameCell = row.isNotEmpty ? row[0] : null;
+      if (nameCell == null || nameCell.value == null) continue;
+      final nameStr = nameCell.value.toString().trim();
+      if (nameStr.isEmpty) continue;
+
+      // MMS (선택)
+      double mms = 0.0;
+      if (row.length > 1 && row[1] != null && row[1]!.value != null) {
+        mms = double.tryParse(row[1]!.value.toString()) ?? 0.0;
+      }
+
+      // Top Bar 여부 (선택)
+      bool isTopBar = false;
+      if (row.length > 2 && row[2] != null && row[2]!.value != null) {
+        final topStr = row[2]!.value.toString().toUpperCase();
+        if (topStr == 'O' || topStr == '1' || topStr == 'Y' || topStr == 'TRUE') {
+          isTopBar = true;
+        }
+      }
+
+      final id = '${DateTime.now().millisecondsSinceEpoch}_${players.length}_$nameStr';
+      players.add(MacmahonPlayer(
+        id: id,
+        name: nameStr,
+        initialMms: mms,
+        currentMms: mms,
+        isTopBar: isTopBar,
+      ));
+    }
+    return players;
+  }
 }

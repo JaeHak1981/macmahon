@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../app_theme.dart';
 import '../models/macmahon_player.dart';
 import '../providers/macmahon_provider.dart';
+import '../services/export_service.dart';
 
 class PlayerRegistrationScreen extends ConsumerStatefulWidget {
   const PlayerRegistrationScreen({super.key});
@@ -55,6 +56,13 @@ class _PlayerRegistrationScreenState
     return Scaffold(
       appBar: AppBar(
         title: Text('선수 등록 (${players.length}명)'),
+        actions: [
+          IconButton(
+            tooltip: '엑셀에서 가져오기',
+            icon: const Icon(Icons.file_upload),
+            onPressed: () => _importFromExcel(context, ref),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -196,6 +204,26 @@ class _PlayerRegistrationScreenState
         ],
       ),
     );
+  }
+
+  Future<void> _importFromExcel(BuildContext context, WidgetRef ref) async {
+    try {
+      final importedPlayers = await ExportService.importPlayersFromExcel();
+      if (importedPlayers.isNotEmpty) {
+        ref.read(macmahonProvider.notifier).addPlayers(importedPlayers);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${importedPlayers.length}명의 선수를 가져왔습니다.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('가져오기 실패: $e')),
+        );
+      }
+    }
   }
 }
 
