@@ -1,16 +1,18 @@
-# macmahon
+# 맥마흔 (Macmahon) - 바둑 토너먼트 관리
 
-A new Flutter project.
+맥마흔 시스템을 기반으로 한 바둑 토너먼트 관리 애플리케이션입니다.
 
-## Getting Started
+## 주요 기능
+- **선수 등록 및 관리**: 참가 선수들의 정보를 등록하고 관리합니다.
+- **맥마흔 페어링**: 공정한 대진을 위해 맥마흔 시스템(Macmahon System)을 지원합니다.
+- **자동 순위 계산**: 경기 결과에 따라 MMS, SOS 등을 자동으로 계산합니다.
+- **윈도우 전용 설치 프로그램**: 한국어 인터페이스와 아이콘이 적용된 설치 파일(.exe)을 지원합니다.
 
-This project is a starting point for a Flutter application.
+## 시작하기
+1. [Releases](https://github.com/JaeHak1981/macmahon/releases) 페이지에서 최신 `macmahon-setup.exe`를 다운로드합니다.
+2. 설치 프로그램을 실행하여 가이드에 따라 설치를 완료합니다.
+3. 프로그램을 실행하여 바둑 대회를 운영하세요!
 
-A few resources to get you started if this is your first Flutter project:
+---
+*이 프로젝트는 Flutter로 개발되었으며, 윈도우 데스크톱 환경을 지원합니다.*
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
