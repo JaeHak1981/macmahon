@@ -21,11 +21,31 @@ class HomeScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        title: Text(
-          state.tournamentName.isEmpty ? '맥마흔 바둑대회' : state.tournamentName,
-          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -0.5),
+        title: Row(
+          children: [
+            Text(
+              state.tournamentName.isEmpty ? '맥마흔 바둑대회' : state.tournamentName,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.textPrimary, letterSpacing: -0.5),
+            ),
+            if (state.isFinished) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade600,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text('종료됨', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ],
         ),
         actions: [
+          IconButton(
+            tooltip: '새 대회 시작',
+            icon: const Icon(Icons.add_circle_outline, color: AppTheme.primary),
+            onPressed: () => _showNewTournamentDialog(context, ref),
+          ),
           IconButton(
             tooltip: '대회 관리',
             icon: const Icon(Icons.settings_outlined, color: AppTheme.textPrimary),
@@ -131,6 +151,22 @@ class HomeScreen extends ConsumerWidget {
                           )
                       : null,
                 ),
+                _GridMenuButton(
+                  icon: state.isFinished ? Icons.play_arrow : Icons.check_circle_outline,
+                  label: state.isFinished ? '대회 재개' : '대회 종료',
+                  subtitle: state.isFinished ? '다시 시작하기' : '결과 확정하기',
+                  color: state.isFinished ? Colors.green : Colors.blueAccent,
+                  onTap: () async {
+                    await ref.read(macmahonProvider.notifier).toggleTournamentStatus();
+                    ref.read(tournamentHistoryProvider.notifier).loadHistory(); // 목록 갱신
+                    
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(state.isFinished ? '대회가 다시 시작되었습니다.' : '대회가 종료되었습니다.')),
+                      );
+                    }
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 36),
@@ -168,6 +204,80 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
+  void _showNewTournamentDialog(BuildContext context, WidgetRef ref) async {
+    final now = DateTime.now();
+    final defaultDate = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+    
+    final nameController = TextEditingController(text: '새 대회');
+    final dateController = TextEditingController(text: defaultDate);
+    final locationController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('새 대회 시작'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('현재 진행 중인 정보가 저장되고 새로운 대회를 시작합니다.', 
+                         style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: '대회명', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: dateController,
+                decoration: const InputDecoration(labelText: '날짜', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: locationController,
+                decoration: const InputDecoration(labelText: '장소(선택)', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final date = dateController.text.trim();
+              final location = locationController.text.trim();
+
+              final notifier = ref.read(macmahonProvider.notifier);
+              
+              // 1. 기존 대회 저장 후 초기화
+              await notifier.startNewTournament();
+              
+              // 2. 입력받은 정보로 업데이트
+              notifier.updateTournamentInfo(
+                name: name,
+                date: date,
+                location: location,
+              );
+              
+              // 3. 즉시 저장소에 반영 및 목록 갱신
+              await notifier.saveCurrentTournament();
+              ref.read(tournamentHistoryProvider.notifier).loadHistory();
+
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('새 대회가 시작되었습니다.')),
+                );
+              }
+            },
+            child: const Text('대회 시작'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showTopMenu(BuildContext context, WidgetRef ref, MacmahonState state) {
     showModalBottomSheet(
       context: context,
@@ -189,6 +299,23 @@ class HomeScreen extends ConsumerWidget {
               onTap: () {
                 Navigator.pop(ctx);
                 _showTournamentInfoDialog(context, ref, state);
+              },
+            ),
+            ListTile(
+              leading: Icon(state.isFinished ? Icons.play_arrow : Icons.check_circle_outline, 
+                           color: state.isFinished ? Colors.green : Colors.blue),
+              title: Text(state.isFinished ? '대회 다시 시작 (재개)' : '대회 종료 (결과 확정)'),
+              subtitle: Text(state.isFinished ? '종료 상태를 해제하고 다시 진행합니다.' : '대회를 종료 상태로 표시합니다.'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await ref.read(macmahonProvider.notifier).toggleTournamentStatus();
+                ref.read(tournamentHistoryProvider.notifier).loadHistory(); // 목록 갱신
+                
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(state.isFinished ? '대회가 다시 시작되었습니다.' : '대회가 종료되었습니다.')),
+                  );
+                }
               },
             ),
             if (state.history.isNotEmpty)
@@ -255,13 +382,29 @@ class HomeScreen extends ConsumerWidget {
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
           ElevatedButton(
-            onPressed: () {
-              ref.read(macmahonProvider.notifier).updateTournamentInfo(
-                    name: nameController.text.trim(),
-                    date: dateController.text.trim(),
-                    location: locationController.text.trim(),
+            onPressed: () async {
+              final name = nameController.text.trim();
+              final date = dateController.text.trim();
+              final location = locationController.text.trim();
+              
+              final notifier = ref.read(macmahonProvider.notifier);
+              notifier.updateTournamentInfo(
+                    name: name,
+                    date: date,
+                    location: location,
                   );
-              Navigator.pop(ctx);
+              
+              // 즉시 저장소에 반영
+              await notifier.saveCurrentTournament();
+              // 홈 화면의 기록 목록 갱신
+              ref.read(tournamentHistoryProvider.notifier).loadHistory();
+              
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('대회 정보가 수정 및 저장되었습니다.')),
+                );
+              }
             },
             child: const Text('저장'),
           ),
@@ -687,7 +830,7 @@ class _HistorySection extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          '최근 완료된 대회 기록',
+          '대회 기록 및 관리',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,
@@ -720,14 +863,45 @@ class _HistorySection extends ConsumerWidget {
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (ctx, index) {
                 final t = tournaments[index];
+                // 현재 macmahonProvider에 로드된 대회인지 확인
+                final currentState = ref.watch(macmahonProvider);
+                final isActive = t.id == currentState.id;
+
                 return ListTile(
-                  tileColor: Colors.white,
+                  tileColor: isActive ? AppTheme.primary.withValues(alpha: 0.05) : Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: Colors.grey.shade200)),
-                  leading: const Icon(Icons.history, color: AppTheme.primary),
-                  title: Text(t.tournamentName,
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                      side: BorderSide(color: isActive ? AppTheme.primary.withValues(alpha: 0.3) : Colors.grey.shade200)),
+                  leading: Icon(isActive ? Icons.play_circle_fill : Icons.history, 
+                               color: isActive ? AppTheme.primary : AppTheme.textSecondary),
+                  title: Row(
+                    children: [
+                      Text(t.tournamentName,
+                          style: TextStyle(fontWeight: FontWeight.bold, color: isActive ? AppTheme.primary : AppTheme.textPrimary)),
+                      if (isActive) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('작업 중', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                      if (t.isFinished) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text('종료', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ],
+                  ),
                   subtitle: Text('${t.tournamentDate} | ${t.players.length}명 참여'),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -739,7 +913,7 @@ class _HistorySection extends ConsumerWidget {
                       const Icon(Icons.chevron_right),
                     ],
                   ),
-                  onTap: () => _loadTournament(context, ref, t),
+                  onTap: isActive ? null : () => _loadTournament(context, ref, t),
                 );
               },
             );
@@ -751,11 +925,18 @@ class _HistorySection extends ConsumerWidget {
     );
   }
 
-  void _loadTournament(BuildContext context, WidgetRef ref, MacmahonState state) {
+  Future<void> _loadTournament(BuildContext context, WidgetRef ref, MacmahonState state) async {
+    // 1. 현재 대회가 있다면 저장
+    await ref.read(macmahonProvider.notifier).saveCurrentTournament();
+    
+    // 2. 새로운 대회 로드
     ref.read(macmahonProvider.notifier).loadState(state);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${state.tournamentName} 기록을 불러왔습니다.')),
-    );
+    
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${state.tournamentName} 기록을 불러왔습니다.')),
+      );
+    }
   }
 
   void _confirmDelete(BuildContext context, WidgetRef ref, MacmahonState state) {
@@ -769,10 +950,7 @@ class _HistorySection extends ConsumerWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              ref.read(tournamentHistoryProvider.notifier).deleteTournament(
-                    state.tournamentName,
-                    state.tournamentDate,
-                  );
+              ref.read(tournamentHistoryProvider.notifier).deleteTournament(state.id);
               Navigator.pop(ctx);
             },
             child: const Text('삭제'),

@@ -41,9 +41,11 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: Text(state.tournamentName.isNotEmpty
-              ? '${state.tournamentName} - 결과'
-              : '대회 결과'),
+          title: Text(
+            state.tournamentName.isNotEmpty
+                ? '${state.tournamentName} - 결과'
+                : '대회 결과',
+          ),
           bottom: const TabBar(
             tabs: [
               Tab(text: '순위표', icon: Icon(Icons.format_list_numbered)),
@@ -62,7 +64,13 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             IconButton(
               tooltip: '엑셀로 내보내기',
               icon: const Icon(Icons.file_download),
-              onPressed: () => _exportToExcel(context, sorted, state.tournamentName, state.history, playerNumbers),
+              onPressed: () => _exportToExcel(
+                context,
+                sorted,
+                state.tournamentName,
+                state.history,
+                playerNumbers,
+              ),
             ),
           ],
         ),
@@ -72,10 +80,15 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
               constraints: const BoxConstraints(maxWidth: 1200),
               child: TabBarView(
                 children: [
-                  _RankingsTab(state: state, sorted: sorted, playerNumbers: playerNumbers, playerRanks: playerRanks),
+                  _RankingsTab(
+                    state: state,
+                    sorted: sorted,
+                    playerNumbers: playerNumbers,
+                    playerRanks: playerRanks,
+                  ),
                   _ResultGridTab(
-                    state: state, 
-                    sorted: sorted, 
+                    state: state,
+                    sorted: sorted,
                     playerNumbers: playerNumbers,
                     playerRanks: playerRanks,
                     verticalController: _verticalController,
@@ -96,7 +109,8 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
       final p = sorted[i];
       if (i > 0) {
         final prev = sorted[i - 1];
-        bool isSame = p.currentMms == prev.currentMms &&
+        bool isSame =
+            p.currentMms == prev.currentMms &&
             p.sos == prev.sos &&
             p.cumulativeScore == prev.cumulativeScore &&
             p.sodos == prev.sodos &&
@@ -104,7 +118,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             !prev.defeatedOpponents.contains(p.id) &&
             p.initialMms == prev.initialMms &&
             p.wins == prev.wins;
-        
+
         if (isSame) {
           playerRanks[p.id] = playerRanks[prev.id]!;
         } else {
@@ -151,23 +165,59 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('점수 구조 안내', style: TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textPrimary)),
+        title: const Text(
+          '점수 구조 안내',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: AppTheme.textPrimary,
+          ),
+        ),
         content: const SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('MMS (내 승점)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 16)),
+              Text(
+                'MMS (내 승점)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                  fontSize: 16,
+                ),
+              ),
               SizedBox(height: 4),
-              Text('선수가 이 대회에서 거둔 총 승점(승수)입니다. 똑같이 0점으로 시작한 대회라면, 3승을 했을 때 3점이 됩니다.', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              Text(
+                '선수가 이 대회에서 거둔 총 승점(승수)입니다. 똑같이 0점으로 시작한 대회라면, 3승을 했을 때 3점이 됩니다.',
+                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+              ),
               SizedBox(height: 16),
-              Text('SOS (대진 난이도)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 16)),
+              Text(
+                'SOS (대진 난이도)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                  fontSize: 16,
+                ),
+              ),
               SizedBox(height: 4),
-              Text('똑같이 3승으로 동점이더라도, 더 어려운 상대들과 싸운 선수를 우대합니다.\n이걸 증명하기 위해 \'내가 만났던 모든 상대들의 승점\'을 합친 타이브레이커 숫자입니다.', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              Text(
+                '똑같이 3승으로 동점이더라도, 더 어려운 상대들과 싸운 선수를 우대합니다.\n이걸 증명하기 위해 \'내가 만났던 모든 상대들의 승점\'을 합친 타이브레이커 숫자입니다.',
+                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+              ),
               SizedBox(height: 16),
-              Text('SODOS (승리 순도)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 16)),
+              Text(
+                'SODOS (승리 순도)',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primary,
+                  fontSize: 16,
+                ),
+              ),
               SizedBox(height: 4),
-              Text('만약 SOS까지 똑같은 초유의 동점 사태가 났을 때, 내가 만난 모든 상대가 아니라 오직 \'내가 직접 이긴 상대\'들의 점수만 합쳐서 최종 우열을 가립니다.', style: TextStyle(fontSize: 14, color: AppTheme.textSecondary)),
+              Text(
+                '만약 SOS까지 똑같은 초유의 동점 사태가 났을 때, 내가 만난 모든 상대가 아니라 오직 \'내가 직접 이긴 상대\'들의 점수만 합쳐서 최종 우열을 가립니다.',
+                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+              ),
             ],
           ),
         ),
@@ -176,23 +226,37 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('이해했습니다', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary)),
+            child: const Text(
+              '이해했습니다',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primary,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _exportToExcel(BuildContext context, List<MacmahonPlayer> sorted, String tournamentName, List<PairingResult> history, Map<String, int> playerNumbers) async {
+  Future<void> _exportToExcel(
+    BuildContext context,
+    List<MacmahonPlayer> sorted,
+    String tournamentName,
+    List<PairingResult> history,
+    Map<String, int> playerNumbers,
+  ) async {
     try {
       final path = await ExportService.exportToExcel(
-          sorted, tournamentName.isEmpty ? 'macmahon_tournament' : tournamentName,
-          history: history,
-          playerNumbers: playerNumbers);
+        sorted,
+        tournamentName.isEmpty ? 'macmahon_tournament' : tournamentName,
+        history: history,
+        playerNumbers: playerNumbers,
+      );
       if (path != null && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('엑셀 파일이 저장되었습니다: $path')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('엑셀 파일이 저장되었습니다: $path')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -200,9 +264,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('내보내기 실패'),
-            content: SingleChildScrollView(
-              child: Text(e.toString()),
-            ),
+            content: SingleChildScrollView(child: Text(e.toString())),
             actions: [
               TextButton(
                 onPressed: () async {
@@ -243,7 +305,7 @@ class _RankingsTab extends StatelessWidget {
   final Map<String, int> playerRanks;
 
   const _RankingsTab({
-    required this.state, 
+    required this.state,
     required this.sorted,
     required this.playerNumbers,
     required this.playerRanks,
@@ -252,7 +314,9 @@ class _RankingsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (sorted.isEmpty) {
-      return const Center(child: Text('선수가 없습니다.', style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text('선수가 없습니다.', style: TextStyle(color: Colors.grey)),
+      );
     }
 
     return Column(
@@ -264,19 +328,26 @@ class _RankingsTab extends StatelessWidget {
             children: [
               SizedBox(width: 40),
               SizedBox(
-                  width: 90,
-                  child: Text('선수명',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondary,
-                          fontSize: 12))),
+                width: 90,
+                child: Text(
+                  '선수명',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
               Expanded(
-                child: Text('라운드 결과',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondary,
-                        fontSize: 12)),
+                child: Text(
+                  '라운드 결과',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
               ),
               _HeaderCell('MMS'),
               _HeaderCell('SOS'),
@@ -318,7 +389,7 @@ class _ResultGridTab extends StatelessWidget {
   final ScrollController horizontalController;
 
   const _ResultGridTab({
-    required this.state, 
+    required this.state,
     required this.sorted,
     required this.playerNumbers,
     required this.playerRanks,
@@ -329,7 +400,9 @@ class _ResultGridTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (sorted.isEmpty) {
-      return const Center(child: Text('선수가 없습니다.', style: TextStyle(color: Colors.grey)));
+      return const Center(
+        child: Text('선수가 없습니다.', style: TextStyle(color: Colors.grey)),
+      );
     }
 
     // 선수별 라운드 종료 후 MMS 히스토리 계산
@@ -342,10 +415,12 @@ class _ResultGridTab extends StatelessWidget {
       final roundResult = state.history[r];
       for (final p in state.players) {
         double current = playerMmsByRound[p.id]!.last;
-        
+
         MacmahonPair? pair;
         try {
-          pair = roundResult.pairs.firstWhere((pair) => pair.black.id == p.id || pair.white.id == p.id);
+          pair = roundResult.pairs.firstWhere(
+            (pair) => pair.black.id == p.id || pair.white.id == p.id,
+          );
         } catch (_) {
           pair = null;
         }
@@ -387,9 +462,9 @@ class _ResultGridTab extends StatelessWidget {
               padding: const EdgeInsets.all(16.0),
               child: Table(
                 columnWidths: {
-                  0: const FixedColumnWidth(40),   // 번호
-                  1: const FixedColumnWidth(100),  // 이름
-                  for (int r = 0; r < roundsCount; r++) 
+                  0: const FixedColumnWidth(40), // 번호
+                  1: const FixedColumnWidth(100), // 이름
+                  for (int r = 0; r < roundsCount; r++)
                     r + 2: const FixedColumnWidth(121), // 라운드별 (60+1+60)
                   roundsCount + 2: const FixedColumnWidth(60), // 초기 MMS
                   roundsCount + 3: const FixedColumnWidth(60), // 승수
@@ -403,19 +478,54 @@ class _ResultGridTab extends StatelessWidget {
                   TableRow(
                     decoration: const BoxDecoration(color: headerGreen),
                     children: [
-                      _GridMainHeaderCell('번호', textColor: Colors.black, minWidth: 40),
-                      _GridMainHeaderCell('이름', textColor: Colors.black, minWidth: 100),
-                      for (int r = 1; r <= roundsCount; r++) 
+                      _GridMainHeaderCell(
+                        '번호',
+                        textColor: Colors.black,
+                        minWidth: 40,
+                      ),
+                      _GridMainHeaderCell(
+                        '이름',
+                        textColor: Colors.black,
+                        minWidth: 100,
+                      ),
+                      for (int r = 1; r <= roundsCount; r++)
                         _GridRoundHeader('${r}R'),
-                      _GridMainHeaderCell('초기\nMMS', textColor: Colors.black, minWidth: 60),
-                      _GridMainHeaderCell('승수', textColor: Colors.black, minWidth: 60),
-                      _GridMainHeaderCell('MMS', textColor: AppTheme.primary, minWidth: 60),
-                      _GridMainHeaderCell('SOS', textColor: AppTheme.textSecondary, minWidth: 60),
-                      _GridMainHeaderCell('순위', textColor: Colors.black, minWidth: 60),
+                      _GridMainHeaderCell(
+                        '초기\nMMS',
+                        textColor: Colors.black,
+                        minWidth: 60,
+                      ),
+                      _GridMainHeaderCell(
+                        '승수',
+                        textColor: Colors.black,
+                        minWidth: 60,
+                      ),
+                      _GridMainHeaderCell(
+                        'MMS',
+                        textColor: AppTheme.primary,
+                        minWidth: 60,
+                      ),
+                      _GridMainHeaderCell(
+                        'SOS',
+                        textColor: AppTheme.textSecondary,
+                        minWidth: 60,
+                      ),
+                      _GridMainHeaderCell(
+                        '순위',
+                        textColor: Colors.black,
+                        minWidth: 60,
+                      ),
                     ],
                   ),
-                  for (final player in sorted)
-                    _buildDataRow(player, playerNumbers[player.id]!, playerNumbers, allRounds, playerRanks[player.id] ?? 0, playerMmsByRound[player.id] ?? []),
+                  for (final player in state.players)
+                    _buildDataRow(
+                      player,
+                      playerNumbers[player.id]!,
+                      playerNumbers,
+                      allRounds,
+                      playerRanks[player.id] ?? 0,
+                      playerMmsByRound[player.id] ?? [],
+                    ),
                 ],
               ),
             ),
@@ -425,26 +535,66 @@ class _ResultGridTab extends StatelessWidget {
     );
   }
 
-  TableRow _buildDataRow(MacmahonPlayer player, int playerNum, Map<String, int> playerNumbers, List<PairingResult> allRounds, int rank, List<double> mmsHistory) {
+  TableRow _buildDataRow(
+    MacmahonPlayer player,
+    int playerNum,
+    Map<String, int> playerNumbers,
+    List<PairingResult> allRounds,
+    int rank,
+    List<double> mmsHistory,
+  ) {
     return TableRow(
       children: [
         _GridDataCell('$playerNum', textAlign: TextAlign.center),
-        _GridDataCell(player.name, bold: true, minWidth: 100, textAlign: TextAlign.center),
-        for (int r = 0; r < allRounds.length; r++) 
-          _buildRoundCell(player, allRounds[r], playerNumbers, mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null),
-        _GridDataCell(player.initialMms.toStringAsFixed(1), textAlign: TextAlign.center),
-        _GridDataCell('${player.wins}', textAlign: TextAlign.center, bold: true),
-        _GridDataCell(player.currentMms.toStringAsFixed(1), textAlign: TextAlign.center, bold: true, color: AppTheme.primary),
-        _GridDataCell(player.sos.toStringAsFixed(1), textAlign: TextAlign.center, color: AppTheme.textSecondary),
+        _GridDataCell(
+          player.name,
+          bold: true,
+          minWidth: 100,
+          textAlign: TextAlign.center,
+        ),
+        for (int r = 0; r < allRounds.length; r++)
+          _buildRoundCell(
+            player,
+            allRounds[r],
+            playerNumbers,
+            mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null,
+          ),
+        _GridDataCell(
+          player.initialMms.toStringAsFixed(1),
+          textAlign: TextAlign.center,
+        ),
+        _GridDataCell(
+          '${player.wins}',
+          textAlign: TextAlign.center,
+          bold: true,
+        ),
+        _GridDataCell(
+          player.currentMms.toStringAsFixed(1),
+          textAlign: TextAlign.center,
+          bold: true,
+          color: AppTheme.primary,
+        ),
+        _GridDataCell(
+          player.sos.toStringAsFixed(1),
+          textAlign: TextAlign.center,
+          color: AppTheme.textSecondary,
+        ),
         _GridDataCell('$rank', textAlign: TextAlign.center, bold: true),
       ],
     );
   }
 
-  Widget _buildRoundCell(MacmahonPlayer player, PairingResult roundHistory, Map<String, int> playerNumbers, double? mmsAfterRound) {
+  Widget _buildRoundCell(
+    MacmahonPlayer player,
+    PairingResult roundHistory,
+    Map<String, int> playerNumbers,
+    double? mmsAfterRound,
+  ) {
     MacmahonPair? pair;
     try {
-      pair = roundHistory.pairs.firstWhere((p) => p.black.id == player.id || p.white.id == player.id);
+      pair = roundHistory.pairs.firstWhere(
+        (p) => p.black.id == player.id || p.white.id == player.id,
+      );
     } catch (_) {
       pair = null;
     }
@@ -493,7 +643,13 @@ class _ResultGridTab extends StatelessWidget {
           bold: pair != null, // 대진이 있으면 무조건 굵게 표시
         ),
         Container(width: 1, height: 72, color: Colors.black),
-        _GridDataCellWithScore(marker, mmsAfterRound, color: color, fontSize: markerSize ?? 13, bold: true),
+        _GridDataCellWithScore(
+          marker,
+          mmsAfterRound,
+          color: color,
+          fontSize: markerSize ?? 13,
+          bold: true,
+        ),
       ],
     );
   }
@@ -513,15 +669,25 @@ class _GridRoundHeader extends StatelessWidget {
           Expanded(
             child: Container(
               alignment: Alignment.center,
-              child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
             ),
           ),
           Container(height: 1, color: Colors.black),
           Row(
             children: [
-              Expanded(child: _GridSubHeaderCell('상대', textColor: Colors.black87)),
+              Expanded(
+                child: _GridSubHeaderCell('상대', textColor: Colors.black87),
+              ),
               Container(width: 1, height: 36, color: Colors.black),
-              Expanded(child: _GridSubHeaderCell('결과', textColor: Colors.black87)),
+              Expanded(
+                child: _GridSubHeaderCell('결과', textColor: Colors.black87),
+              ),
             ],
           ),
         ],
@@ -537,7 +703,9 @@ class _GridDataCellWithScore extends StatelessWidget {
   final double fontSize;
   final bool bold;
 
-  const _GridDataCellWithScore(this.marker, this.score, {
+  const _GridDataCellWithScore(
+    this.marker,
+    this.score, {
     required this.color,
     required this.fontSize,
     this.bold = false,
@@ -575,12 +743,15 @@ class _GridDataCellWithScore extends StatelessWidget {
   }
 }
 
-
 class _GridMainHeaderCell extends StatelessWidget {
   final String text;
   final Color textColor;
   final double? minWidth;
-  const _GridMainHeaderCell(this.text, {this.textColor = Colors.black, this.minWidth});
+  const _GridMainHeaderCell(
+    this.text, {
+    this.textColor = Colors.black,
+    this.minWidth,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -589,9 +760,15 @@ class _GridMainHeaderCell extends StatelessWidget {
       height: 72,
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Text(text,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 13)),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      ),
     );
   }
 }
@@ -606,8 +783,14 @@ class _GridSubHeaderCell extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6),
       alignment: Alignment.center,
-      child: Text(text,
-          style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 11)),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+      ),
     );
   }
 }
@@ -618,21 +801,20 @@ class _GridDataCell extends StatelessWidget {
   final Color? color;
   final TextAlign textAlign;
   final double? minWidth;
-  final double? fontSize;
 
-  const _GridDataCell(this.text, {
-    this.bold = false, 
-    this.color, 
-    this.textAlign = TextAlign.center, 
+  const _GridDataCell(
+    this.text, {
+    this.bold = false,
+    this.color,
+    this.textAlign = TextAlign.center,
     this.minWidth,
-    this.fontSize,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       constraints: BoxConstraints(minWidth: minWidth ?? 60),
-      height: 72, // 높이 증가 (72로 상향 조정)
+      height: 72, 
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
@@ -641,7 +823,7 @@ class _GridDataCell extends StatelessWidget {
         style: TextStyle(
           fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           color: color ?? AppTheme.textPrimary,
-          fontSize: fontSize ?? 13,
+          fontSize: 13,
         ),
       ),
     );
@@ -656,12 +838,15 @@ class _HeaderCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: 44,
-      child: Text(text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textSecondary,
-              fontSize: 12)),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: AppTheme.textSecondary,
+          fontSize: 12,
+        ),
+      ),
     );
   }
 }
@@ -699,16 +884,21 @@ class _StandingsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: isTopThree ? _rankColor.withValues(alpha: 0.07) : AppTheme.cardBg,
+        color: isTopThree
+            ? _rankColor.withValues(alpha: 0.07)
+            : AppTheme.cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isTopThree ? _rankColor.withValues(alpha: 0.4) : Colors.transparent,
+          color: isTopThree
+              ? _rankColor.withValues(alpha: 0.4)
+              : Colors.transparent,
         ),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2))
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Padding(
@@ -726,7 +916,10 @@ class _StandingsTile extends StatelessWidget {
                 child: Text(
                   '$rank',
                   style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ),
@@ -735,24 +928,35 @@ class _StandingsTile extends StatelessWidget {
               width: 90,
               child: Row(
                 children: [
-                   Flexible(
-                    child: Text(player.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: AppTheme.textPrimary,
-                        )),
+                  Flexible(
+                    child: Text(
+                      player.name,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: AppTheme.textPrimary,
+                      ),
+                    ),
                   ),
                   if (player.isTopBar) ...[
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.accent.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: const Text('T', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'T',
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -775,8 +979,15 @@ class _StandingsTile extends StatelessWidget {
                     ),
             ),
             const SizedBox(width: 8),
-            _ScoreCell(value: player.currentMms.toStringAsFixed(1), bold: true, color: AppTheme.primary),
-            _ScoreCell(value: player.sos.toStringAsFixed(1), color: AppTheme.textSecondary),
+            _ScoreCell(
+              value: player.currentMms.toStringAsFixed(1),
+              bold: true,
+              color: AppTheme.primary,
+            ),
+            _ScoreCell(
+              value: player.sos.toStringAsFixed(1),
+              color: AppTheme.textSecondary,
+            ),
             _ScoreCell(value: '${player.wins}', color: Colors.green),
             _ScoreCell(value: '${player.losses}', color: Colors.red),
           ],
@@ -788,7 +999,9 @@ class _StandingsTile extends StatelessWidget {
   Widget _buildRoundMiniBadge(PairingResult roundHistory, int roundNum) {
     MacmahonPair? pair;
     try {
-      pair = roundHistory.pairs.firstWhere((p) => p.black.id == player.id || p.white.id == player.id);
+      pair = roundHistory.pairs.firstWhere(
+        (p) => p.black.id == player.id || p.white.id == player.id,
+      );
     } catch (_) {
       pair = null;
     }
@@ -850,7 +1063,11 @@ class _ScoreCell extends StatelessWidget {
   final String value;
   final bool bold;
   final Color color;
-  const _ScoreCell({required this.value, this.bold = false, required this.color});
+  const _ScoreCell({
+    required this.value,
+    this.bold = false,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {

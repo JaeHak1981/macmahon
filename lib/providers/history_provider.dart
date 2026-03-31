@@ -25,9 +25,9 @@ class TournamentHistoryNotifier extends StateNotifier<AsyncValue<List<MacmahonSt
   }
 
   /// 기록 삭제
-  Future<void> deleteTournament(String name, String date) async {
+  Future<void> deleteTournament(String id) async {
     try {
-      await _storageService.deleteTournament(name, date);
+      await _storageService.deleteTournament(id);
       await loadHistory();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);

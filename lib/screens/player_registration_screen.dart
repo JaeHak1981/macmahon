@@ -4,6 +4,7 @@ import '../app_theme.dart';
 import '../models/macmahon_player.dart';
 import '../providers/macmahon_provider.dart';
 import '../services/export_service.dart';
+import '../providers/history_provider.dart';
 
 class PlayerRegistrationScreen extends ConsumerStatefulWidget {
   const PlayerRegistrationScreen({super.key});
@@ -117,10 +118,36 @@ class _PlayerRegistrationScreenState
                   ],
                 ),
                 const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  onPressed: _addPlayer,
-                  icon: const Icon(Icons.add),
-                  label: const Text('선수 추가'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _addPlayer,
+                        icon: const Icon(Icons.add),
+                        label: const Text('선수 추가'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primary,
+                          side: const BorderSide(color: AppTheme.primary),
+                        ),
+                        onPressed: () async {
+                          await ref.read(macmahonProvider.notifier).saveCurrentTournament();
+                          ref.read(tournamentHistoryProvider.notifier).loadHistory();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('선수 명단/대회 정보가 저장되었습니다.')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.save_outlined),
+                        label: const Text('명단 저장'),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
