@@ -21,7 +21,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('라운드 ${state.currentRound} 대진표'),
+        title: Text('${state.selectedSection}: 라운드 ${state.currentRound} 대진표'),
         actions: [
           if (state.history.isNotEmpty || state.currentPairing != null)
             IconButton(
@@ -47,7 +47,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                       size: 64, color: AppTheme.primaryLight),
                   const SizedBox(height: 16),
                   Text(
-                    '${state.players.length}명의 선수가 등록되어 있습니다.',
+                    '${state.currentSectionPlayers.length}명의 선수가 등록되어 있습니다.',
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(height: 8),

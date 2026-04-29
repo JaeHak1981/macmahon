@@ -107,7 +107,7 @@ class PairingResult {
   static PairingResult fromJson(
       Map<String, dynamic> json, List<MacmahonPlayer> players) {
     return PairingResult(
-      round: json['round'] as int,
+      round: (json['round'] as num?)?.toInt() ?? 1,
       byePlayer: json['byePlayerId'] == null
           ? null
           : players.firstWhere((p) => p.id == json['byePlayerId']),

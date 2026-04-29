@@ -105,6 +105,112 @@ class PairingService {
     );
   }
 
+  /// 풀리그 대진 생성 (서클 알고리즘 적용)
+  PairingResult generateLeaguePairing({
+    required List<MacmahonPlayer> players,
+    required int round,
+  }) {
+    if (players.isEmpty) return PairingResult(pairs: [], round: round);
+
+    final List<MacmahonPlayer> workingList = List.from(players);
+    // 선수 수가 홀수면 더미 추가
+    if (workingList.length % 2 != 0) {
+      workingList.add(MacmahonPlayer(id: _kDummyId, name: 'BYE', initialMms: 0, currentMms: 0));
+    }
+
+    final int n = workingList.length;
+    final int roundsCount = n - 1;
+    
+    if (round > roundsCount) {
+      return PairingResult(pairs: [], round: round);
+    }
+
+    // 서클 알고리즘 (Circle Method) 정석 구현
+    final List<MacmahonPlayer> rotated = List.from(workingList);
+    
+    // 라운드 수만큼 회전 (1번은 고정하고 2~n번을 시계방향 회전)
+    for (int r = 1; r < round; r++) {
+      final MacmahonPlayer last = rotated.removeLast();
+      rotated.insert(1, last);
+    }
+
+    final List<MacmahonPair> pairs = [];
+    MacmahonPlayer? byePlayer;
+
+    for (int i = 0; i < n / 2; i++) {
+      final p1 = rotated[i];
+      final p2 = rotated[n - 1 - i];
+
+      if (p1.id == _kDummyId) {
+        byePlayer = p2;
+      } else if (p2.id == _kDummyId) {
+        byePlayer = p1;
+      } else {
+        pairs.add(MacmahonPair(black: p1, white: p2, cost: 0));
+      }
+    }
+
+    return PairingResult(pairs: pairs, round: round, byePlayer: byePlayer);
+  }
+
+  /// 토너먼트 대진 생성 (싱글 일리미네이션)
+  PairingResult generateKnockoutPairing({
+    required List<MacmahonPlayer> players,
+    required int round,
+  }) {
+    if (players.isEmpty) return PairingResult(pairs: [], round: round);
+
+    // 본선 진출자들을 MMS 순으로 정렬 (시드 배정용)
+    final List<MacmahonPlayer> sorted = List.from(players);
+    sorted.sort((a, b) => b.currentMms.compareTo(a.currentMms));
+
+    final List<MacmahonPair> pairs = [];
+    MacmahonPlayer? byePlayer;
+
+    // 1R: 시드 배정 (1위 vs 최하위, 2위 vs 차하위...)
+    // 2R 이상: 승자들끼리 순서대로 매칭
+    for (int i = 0; i < sorted.length / 2; i++) {
+      final p1 = sorted[i];
+      final p2 = sorted[sorted.length - 1 - i];
+      pairs.add(MacmahonPair(black: p1, white: p2, cost: 0));
+    }
+
+    if (sorted.length % 2 != 0) {
+      byePlayer = sorted[sorted.length ~/ 2];
+    }
+
+    return PairingResult(pairs: pairs, round: round, byePlayer: byePlayer);
+  }
+
+  /// 조별 리그 대진 생성 (그룹별로 각각 서클 알고리즘 적용)
+  PairingResult generateGroupLeaguePairing({
+    required List<MacmahonPlayer> players,
+    required int round,
+  }) {
+    final Map<String, List<MacmahonPlayer>> groups = {};
+    for (final p in players) {
+      final gId = p.groupId ?? "A";
+      groups.putIfAbsent(gId, () => []).add(p);
+    }
+
+    final List<MacmahonPair> allPairs = [];
+    final List<MacmahonPlayer> byePlayers = [];
+
+    groups.forEach((gId, groupPlayers) {
+      final res = generateLeaguePairing(players: groupPlayers, round: round);
+      allPairs.addAll(res.pairs);
+      if (res.byePlayer != null) {
+        byePlayers.add(res.byePlayer!);
+      }
+    });
+
+    return PairingResult(
+      pairs: allPairs,
+      round: round,
+      byePlayer: byePlayers.isNotEmpty ? byePlayers.first : null,
+    );
+  }
+
   /// 페어링 결과를 선수 데이터에 반영합니다.
   ///
   /// 대진표가 확정된 후 호출하여 floatHistory와 opponents를 업데이트합니다.

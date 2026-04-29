@@ -9,6 +9,7 @@
 class MacmahonPlayer {
   final String id;
   final String name;
+  final String section; // 부 (예: 최강부, 일반부)
   final double initialMms; // 초기 맥마흔 점수 (대회 시작 시 부여)
   double currentMms; // 현재 맥마흔 점수 (라운드마다 갱신)
   final bool isTopBar; // Top Bar 이상 여부 (안티그래비티 제외 대상)
@@ -22,9 +23,12 @@ class MacmahonPlayer {
   double sodos = 0.0; // Sum of Defeated Opponents' Scores
   double cumulativeScore = 0.0; // 점수 누계 (Progressive Score) - 타이 브레이크용
 
+  final String? groupId; // 조 ID (리그 진행 시 사용, 예: "A", "B")
+
   MacmahonPlayer({
     required this.id,
     required this.name,
+    this.section = '일반부', // 기본값
     required this.initialMms,
     required this.currentMms,
     this.isTopBar = false,
@@ -37,9 +41,48 @@ class MacmahonPlayer {
     this.sos = 0.0,
     this.sodos = 0.0,
     this.cumulativeScore = 0.0,
+    this.groupId,
   })  : floatHistory = floatHistory ?? [],
         opponents = opponents ?? {},
         defeatedOpponents = defeatedOpponents ?? {};
+
+  MacmahonPlayer copyWith({
+    String? id,
+    String? name,
+    String? section,
+    double? initialMms,
+    double? currentMms,
+    bool? isTopBar,
+    List<int>? floatHistory,
+    Set<String>? opponents,
+    Set<String>? defeatedOpponents,
+    int? wins,
+    int? losses,
+    int? draws,
+    double? sos,
+    double? sodos,
+    double? cumulativeScore,
+    String? groupId,
+  }) {
+    return MacmahonPlayer(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      section: section ?? this.section,
+      initialMms: initialMms ?? this.initialMms,
+      currentMms: currentMms ?? this.currentMms,
+      isTopBar: isTopBar ?? this.isTopBar,
+      floatHistory: floatHistory ?? this.floatHistory,
+      opponents: opponents ?? this.opponents,
+      defeatedOpponents: defeatedOpponents ?? this.defeatedOpponents,
+      wins: wins ?? this.wins,
+      losses: losses ?? this.losses,
+      draws: draws ?? this.draws,
+      sos: sos ?? this.sos,
+      sodos: sodos ?? this.sodos,
+      cumulativeScore: cumulativeScore ?? this.cumulativeScore,
+      groupId: groupId ?? this.groupId,
+    );
+  }
 
   /// 직전 라운드 플로팅 결과 (-1, 0, +1)
   int? get lastFloat => floatHistory.isEmpty ? null : floatHistory.last;
@@ -52,7 +95,7 @@ class MacmahonPlayer {
         floatHistory[floatHistory.length - 2] == -1;
   }
 
-  /// 직전 라운드 혹은 지정된 라운드 후에 점수 누계 업데이트
+  /// 직전 라운드 후에 점수 누계 업데이트
   void updateCumulativeScore() {
     cumulativeScore += currentMms;
   }
@@ -78,12 +121,13 @@ class MacmahonPlayer {
 
   @override
   String toString() =>
-      'MacmahonPlayer($name, MMS: $currentMms, floatHistory: $floatHistory)';
+      'MacmahonPlayer($name, Section: $section, MMS: $currentMms, Group: $groupId)';
 
   /// JSON 직렬화 (저장/복원용)
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
+        'section': section,
         'initialMms': initialMms,
         'currentMms': currentMms,
         'isTopBar': isTopBar,
@@ -96,12 +140,14 @@ class MacmahonPlayer {
         'sos': sos,
         'sodos': sodos,
         'cumulativeScore': cumulativeScore,
+        'groupId': groupId,
       };
 
   factory MacmahonPlayer.fromJson(Map<String, dynamic> json) =>
       MacmahonPlayer(
         id: json['id'] as String,
         name: json['name'] as String,
+        section: json['section'] as String? ?? '일반부',
         initialMms: (json['initialMms'] as num).toDouble(),
         currentMms: (json['currentMms'] as num).toDouble(),
         isTopBar: json['isTopBar'] as bool? ?? false,
@@ -110,11 +156,12 @@ class MacmahonPlayer {
         defeatedOpponents: json['defeatedOpponents'] != null 
             ? Set<String>.from(json['defeatedOpponents'] as List)
             : {},
-        wins: json['wins'] as int? ?? 0,
-        losses: json['losses'] as int? ?? 0,
-        draws: json['draws'] as int? ?? 0,
+        wins: (json['wins'] as num?)?.toInt() ?? 0,
+        losses: (json['losses'] as num?)?.toInt() ?? 0,
+        draws: (json['draws'] as num?)?.toInt() ?? 0,
         sos: (json['sos'] as num? ?? 0.0).toDouble(),
         sodos: (json['sodos'] as num? ?? 0.0).toDouble(),
         cumulativeScore: (json['cumulativeScore'] as num? ?? 0.0).toDouble(),
+        groupId: json['groupId'] as String?,
       );
 }

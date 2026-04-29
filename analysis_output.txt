@@ -1,0 +1,15 @@
+Analyzing macmahon...                                           
+
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/app_theme.dart:51:37 • deprecated_member_use
+   info • Statements in a for should be enclosed in a block • lib/providers/macmahon_provider.dart:415:32 • curly_braces_in_flow_control_structures
+warning • The value of the local variable 'qualifiers' isn't used • lib/providers/macmahon_provider.dart:478:11 • unused_local_variable
+warning • The declaration '_showNewTournamentDialog' isn't referenced • lib/screens/home_screen.dart:325:8 • unused_element
+warning • The declaration '_showTopMenu' isn't referenced • lib/screens/home_screen.dart:459:8 • unused_element
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/lock_screen.dart:48:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/lock_screen.dart:56:37 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/lock_screen.dart:58:56 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/screens/lock_screen.dart:77:37 • deprecated_member_use
+   info • Use a 'SizedBox' to add whitespace to a layout • lib/screens/standings_screen.dart:677:12 • sized_box_for_whitespace
+   info • Don't invoke 'print' in production code • lib/services/storage_service.dart:21:7 • avoid_print
+
+11 issues found. (ran in 2.2s)

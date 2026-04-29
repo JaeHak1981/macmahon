@@ -14,7 +14,7 @@ class RoundHistoryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('매칭 기록'),
+        title: Text('${state.selectedSection} 매칭 기록'),
       ),
       body: SafeArea(
         child: Center(

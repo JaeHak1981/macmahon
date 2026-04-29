@@ -29,27 +29,33 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(macmahonProvider);
+    final players = state.currentSectionPlayers;
 
     // MMS > SOS > SODOS > 승자승 > 초기 MMS > 승수 기준 내림차순 정렬
-    final sorted = [...state.players]..sort(_comparePlayers);
+    final sorted = [...players]..sort(_comparePlayers);
 
-    final playerNumbers = _getPlayerNumbers(state.players);
+    final playerNumbers = _getPlayerNumbers(players);
     final playerRanks = _calculateRanks(sorted);
+
+    final isLeague = state.format == TournamentFormat.league || 
+                    state.format == TournamentFormat.leagueAndKnockout;
 
     return DefaultTabController(
       initialIndex: widget.initialIndex,
-      length: 2,
+      length: isLeague ? 3 : 2,
       child: Scaffold(
         appBar: AppBar(
           title: Text(
             state.tournamentName.isNotEmpty
-                ? '${state.tournamentName} - 결과'
-                : '대회 결과',
+                ? '${state.tournamentName} - ${state.selectedSection} 결과'
+                : '${state.selectedSection} 대회 결과',
           ),
-          bottom: const TabBar(
+          bottom: TabBar(
             tabs: [
-              Tab(text: '순위표', icon: Icon(Icons.format_list_numbered)),
-              Tab(text: '결과표 (Grid)', icon: Icon(Icons.grid_on)),
+              const Tab(text: '순위표', icon: Icon(Icons.format_list_numbered)),
+              const Tab(text: '결과표 (Grid)', icon: Icon(Icons.grid_on)),
+              if (isLeague)
+                const Tab(text: '리그표 (Matrix)', icon: Icon(Icons.apps)),
             ],
             indicatorColor: AppTheme.primary,
             labelColor: AppTheme.primary,
@@ -94,6 +100,13 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                     verticalController: _verticalController,
                     horizontalController: _horizontalController,
                   ),
+                  if (isLeague)
+                    _LeagueMatrixTab(
+                      state: state,
+                      sorted: sorted,
+                      playerNumbers: playerNumbers,
+                      playerRanks: playerRanks,
+                    ),
                 ],
               ),
             ),
@@ -925,40 +938,55 @@ class _StandingsTile extends StatelessWidget {
             ),
             const SizedBox(width: 10),
             SizedBox(
-              width: 90,
-              child: Row(
+              width: 110,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Flexible(
-                    child: Text(
-                      player.name,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-                  ),
-                  if (player.isTopBar) ...[
-                    const SizedBox(width: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.accent.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'T',
-                        style: TextStyle(
-                          fontSize: 8,
-                          fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          player.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: AppTheme.textPrimary,
+                          ),
                         ),
                       ),
+                      if (player.isTopBar) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accent.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'T',
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (player.groupId != null)
+                    Text(
+                      '${player.groupId}조',
+                      style: const TextStyle(
+                        color: AppTheme.primary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ],
                 ],
               ),
             ),
@@ -1080,6 +1108,183 @@ class _ScoreCell extends StatelessWidget {
           fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           color: color,
           fontSize: bold ? 15 : 14,
+        ),
+      ),
+    );
+  }
+}
+
+class _LeagueMatrixTab extends StatelessWidget {
+  final MacmahonState state;
+  final List<MacmahonPlayer> sorted;
+  final Map<String, int> playerNumbers;
+
+  final Map<String, int> playerRanks;
+
+  const _LeagueMatrixTab({
+    required this.state,
+    required this.sorted,
+    required this.playerNumbers,
+    required this.playerRanks,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (sorted.isEmpty) {
+      return const Center(child: Text('선수가 없습니다.'));
+    }
+
+    final Map<String, List<MacmahonPlayer>> groups = {};
+    for (final p in sorted) {
+      final gId = p.groupId ?? "전체";
+      groups.putIfAbsent(gId, () => []).add(p);
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: groups.entries.map((entry) {
+          final groupName = entry.key;
+          final groupPlayers = entry.value;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (groups.length > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    '$groupName조 리그표',
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primary),
+                  ),
+                ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: _buildGroupTable(groupPlayers),
+              ),
+              const SizedBox(height: 32),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildGroupTable(List<MacmahonPlayer> groupPlayers) {
+    final n = groupPlayers.length;
+    final headerColor = Colors.grey.shade100;
+
+    return Table(
+      border: TableBorder.all(color: Colors.grey.shade400, width: 1.5),
+      columnWidths: {
+        0: const FixedColumnWidth(160), // 이름 열
+        for (int i = 1; i <= n; i++) i: const FixedColumnWidth(70), // 결과 열
+        n + 1: const FixedColumnWidth(80), // 승점 열
+        n + 2: const FixedColumnWidth(80), // 순위 열
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        // 헤더 행
+        TableRow(
+          decoration: BoxDecoration(color: headerColor),
+          children: [
+            const _MatrixCell('선수명', bold: true, fontSize: 14),
+            for (int i = 1; i <= n; i++)
+              _MatrixCell('$i', bold: true, fontSize: 14),
+            const _MatrixCell('승점', bold: true, fontSize: 14),
+            const _MatrixCell('순위', bold: true, fontSize: 14),
+          ],
+        ),
+        // 데이터 행
+        for (int i = 0; i < n; i++)
+          TableRow(
+            children: [
+              _MatrixCell('${i + 1}. ${groupPlayers[i].name}',
+                  bold: true, textAlign: TextAlign.left, fontSize: 14),
+              for (int j = 0; j < n; j++)
+                _buildResultCell(groupPlayers[i], groupPlayers[j], i == j),
+              _MatrixCell(groupPlayers[i].wins.toString(),
+                  bold: true, fontSize: 16),
+              _MatrixCell('${playerRanks[groupPlayers[i].id] ?? "-"}위',
+                  bold: true, fontSize: 16, color: AppTheme.primary),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _buildResultCell(MacmahonPlayer p1, MacmahonPlayer p2, bool isSelf) {
+    if (isSelf) {
+      return Container(
+        height: 70, // 높이 증가
+        color: Colors.grey.shade300,
+        child: const Center(
+            child: Text('\\',
+                style: TextStyle(color: Colors.grey, fontSize: 20))),
+      );
+    }
+
+    // p1과 p2의 경기 결과 찾기
+    String resultText = '-';
+    Color textColor = AppTheme.textPrimary;
+
+    for (final round in state.history) {
+      for (final pair in round.pairs) {
+        if ((pair.black.id == p1.id && pair.white.id == p2.id) ||
+            (pair.black.id == p2.id && pair.white.id == p1.id)) {
+          if (pair.isResultEntered) {
+            if (pair.winnerId == p1.id) {
+              resultText = 'O';
+              textColor = Colors.red;
+            } else if (pair.winnerId == p2.id) {
+              resultText = 'X';
+              textColor = Colors.blue;
+            } else {
+              resultText = '△';
+              textColor = Colors.orange;
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    return _MatrixCell(resultText, color: textColor, fontSize: 22, bold: true);
+  }
+}
+
+class _MatrixCell extends StatelessWidget {
+  final String text;
+  final bool bold;
+  final TextAlign textAlign;
+  final Color? color;
+  final double fontSize;
+
+  const _MatrixCell(
+    this.text, {
+    this.bold = false,
+    this.textAlign = TextAlign.center,
+    this.color,
+    this.fontSize = 12,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 70, // 높이 고정 증가
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        textAlign: textAlign,
+        style: TextStyle(
+          fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+          fontSize: fontSize,
+          color: color,
         ),
       ),
     );

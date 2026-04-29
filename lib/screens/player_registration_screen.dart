@@ -40,6 +40,7 @@ class _PlayerRegistrationScreenState
     final player = MacmahonPlayer(
       id: '${DateTime.now().millisecondsSinceEpoch}_${state.players.length}_$name',
       name: name,
+      section: state.selectedSection, // 현재 선택된 부 자동 할당
       initialMms: mms,
       currentMms: mms,
       isTopBar: _isTopBar,
@@ -52,12 +53,18 @@ class _PlayerRegistrationScreenState
 
   @override
   Widget build(BuildContext context) {
-    final players = ref.watch(macmahonProvider).players;
+    final state = ref.watch(macmahonProvider);
+    final players = state.currentSectionPlayers; // 선택된 부의 선수만 표시
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('선수 등록 (${players.length}명)'),
+        title: Text('${state.selectedSection} 선수 등록 (${players.length}명)'),
         actions: [
+          IconButton(
+            tooltip: '샘플 선수 추가',
+            icon: const Icon(Icons.person_add_alt_1),
+            onPressed: () => _showSampleCountDialog(context, ref),
+          ),
           IconButton(
             tooltip: '엑셀에서 가져오기',
             icon: const Icon(Icons.file_upload),
@@ -185,7 +192,7 @@ class _PlayerRegistrationScreenState
                         onDelete: () => ref
                             .read(macmahonProvider.notifier)
                             .removePlayer(player.id),
-                        onEdit: () => _editPlayerName(context, player, ref.read(macmahonProvider.notifier)),
+                        onEdit: () => _editPlayer(context, player, ref.read(macmahonProvider.notifier)),
                       );
                     },
                   ),
@@ -198,37 +205,76 @@ class _PlayerRegistrationScreenState
     );
   }
 
-  void _editPlayerName(BuildContext context, MacmahonPlayer player, MacmahonNotifier notifier) {
-    final controller = TextEditingController(text: player.name);
+  void _editPlayer(BuildContext context, MacmahonPlayer player, MacmahonNotifier notifier) {
+    final nameController = TextEditingController(text: player.name);
+    final mmsController = TextEditingController(text: player.initialMms.toString());
+    bool isTopBar = player.isTopBar;
+    String selectedSection = player.section;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('선수 이름 수정', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: '이름',
-            border: OutlineInputBorder(),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('선수 정보 수정', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: '이름', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: mmsController,
+                  decoration: const InputDecoration(labelText: '초기 MMS', border: OutlineInputBorder()),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedSection,
+                  decoration: const InputDecoration(labelText: '부 선택', border: OutlineInputBorder()),
+                  items: ref.read(macmahonProvider).sections.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (val) => setDialogState(() => selectedSection = val!),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Checkbox(value: isTopBar, onChanged: (v) => setDialogState(() => isTopBar = v ?? false)),
+                    const Text('Top Bar 이상'),
+                  ],
+                ),
+              ],
+            ),
           ),
-          autofocus: true,
-          onSubmitted: (val) {
-            notifier.updatePlayerName(player.id, val);
-            Navigator.pop(context);
-          },
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+            ElevatedButton(
+              onPressed: () {
+                final updatedPlayer = MacmahonPlayer(
+                  id: player.id,
+                  name: nameController.text.trim(),
+                  section: selectedSection,
+                  initialMms: double.tryParse(mmsController.text) ?? player.initialMms,
+                  currentMms: player.currentMms, // 진행 중이라면 유지하되, 필요시 수정 로직 추가 가능
+                  isTopBar: isTopBar,
+                  floatHistory: player.floatHistory,
+                  opponents: player.opponents,
+                  defeatedOpponents: player.defeatedOpponents,
+                  wins: player.wins,
+                  losses: player.losses,
+                  draws: player.draws,
+                  sos: player.sos,
+                  sodos: player.sodos,
+                  cumulativeScore: player.cumulativeScore,
+                );
+                notifier.updatePlayer(updatedPlayer);
+                Navigator.pop(context);
+              },
+              child: const Text('저장'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              notifier.updatePlayerName(player.id, controller.text);
-              Navigator.pop(context);
-            },
-            child: const Text('저장'),
-          ),
-        ],
       ),
     );
   }
@@ -237,20 +283,70 @@ class _PlayerRegistrationScreenState
     try {
       final importedPlayers = await ExportService.importPlayersFromExcel();
       if (importedPlayers.isNotEmpty) {
-        ref.read(macmahonProvider.notifier).addPlayers(importedPlayers);
+        final state = ref.read(macmahonProvider);
+        // 가져온 선수들에게 현재 부를 할당
+        final playersWithSection = importedPlayers.map((p) => MacmahonPlayer(
+          id: p.id,
+          name: p.name,
+          section: state.selectedSection,
+          initialMms: p.initialMms,
+          currentMms: p.currentMms,
+          isTopBar: p.isTopBar,
+        )).toList();
+
+        ref.read(macmahonProvider.notifier).addPlayers(playersWithSection);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${importedPlayers.length}명의 선수를 가져왔습니다.')),
+            SnackBar(content: Text('${state.selectedSection}에 ${playersWithSection.length}명의 선수를 가져왔습니다.')),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('가져오기 실패: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('가져오기 실패: $e')));
       }
     }
+  }
+  void _showSampleCountDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController(text: '8');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('샘플 선수 자동 생성', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('생성할 선수 인원수를 입력하세요.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: '인원수',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+          ElevatedButton(
+            onPressed: () {
+              final count = int.tryParse(controller.text) ?? 0;
+              if (count > 0) {
+                ref.read(macmahonProvider.notifier).addSamplePlayers(count);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$count명의 샘플 선수가 생성되었습니다.')),
+                );
+              }
+            },
+            child: const Text('생성'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -300,7 +396,7 @@ class _PlayerTile extends StatelessWidget {
             ],
           ],
         ),
-        subtitle: Text('MMS: ${player.currentMms}'),
+        subtitle: Text('MMS: ${player.currentMms} | 부: ${player.section}'),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -346,7 +442,7 @@ class _RecommendationCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(macmahonProvider);
-    final playerCount = state.players.length;
+    final playerCount = state.currentSectionPlayers.length;
     final recommendedRounds = state.recommendedRounds;
 
     return Container(
@@ -358,7 +454,7 @@ class _RecommendationCard extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '선수 $playerCount명 기준 권장 라운드 수는 $recommendedRounds라운드입니다.',
+              '${state.selectedSection} 선수 $playerCount명 기준 권장 라운드 수는 $recommendedRounds라운드입니다.',
               style: const TextStyle(
                 color: AppTheme.primary,
                 fontWeight: FontWeight.bold,

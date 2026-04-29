@@ -5,220 +5,320 @@ import '../services/pairing_service.dart';
 import '../services/storage_service.dart';
 import '../utils/macmahon_utils.dart';
 
-// ─── 상태 클래스 ────────────────────────────────────────────
+// ─── 대회 방식 및 진행 단계 ────────────────────────────
 
-/// 맥마흔 페어링 상태
-class MacmahonState {
-  final String id; // 대회 고유 식별자
-  final List<MacmahonPlayer> players; // 전체 선수 목록
-  final List<PairingResult> history; // 라운드별 페어링 이력
-  final PairingResult? currentPairing; // 이번 라운드 대진표
-  final int currentRound; // 현재 라운드 번호
-  final bool isLoading; // 계산 중 여부
-  final String? errorMessage; // 에러 메시지
-  final String tournamentName; // 대회 명칭
-  final String tournamentDate; // 대회 날짜
-  final String tournamentLocation; // 대회 장소
-  final bool isFinished; // 대회 종료 여부
+enum TournamentFormat {
+  macmahon, // 맥마흔 (스위스 리그 변형)
+  league,   // 풀리그 (Round-robin)
+  knockout,  // 토너먼트 (Single Elimination)
+  doubleElimination, // 더블 일리미네이션
+  leagueAndKnockout, // 풀리그 + 토너먼트
+}
 
-  const MacmahonState({
-    required this.id,
-    this.players = const [],
+enum LeagueType {
+  normal,            // 일반 풀리그
+  doubleElimination, // 더블 일리미네이션
+}
+
+// ─── 부(Section)별 상태 클래스 ──────────────────────────────
+
+class SectionData {
+  final List<PairingResult> history;
+  final PairingResult? currentPairing;
+  final int currentRound;
+  final bool isFinished;
+  final TournamentFormat format;
+  final LeagueType leagueType;
+  final int stage; // 1: 예선, 2: 본선
+  final int qualifierCount;
+  final int groupCount;
+
+  const SectionData({
     this.history = const [],
     this.currentPairing,
     this.currentRound = 1,
-    this.isLoading = false,
-    this.errorMessage,
-    this.tournamentName = '새 대회',
-    this.tournamentDate = '',
-    this.tournamentLocation = '',
     this.isFinished = false,
+    this.format = TournamentFormat.macmahon,
+    this.leagueType = LeagueType.normal,
+    this.stage = 1,
+    this.qualifierCount = 4,
+    this.groupCount = 1,
   });
 
-  MacmahonState copyWith({
-    String? id,
-    List<MacmahonPlayer>? players,
+  SectionData copyWith({
     List<PairingResult>? history,
-    dynamic currentPairing = _sentinel, // null을 명시적으로 허구하기 위한 센티넬
+    dynamic currentPairing = _sentinel,
     int? currentRound,
-    bool? isLoading,
-    String? errorMessage,
-    String? tournamentName,
-    String? tournamentDate,
-    String? tournamentLocation,
     bool? isFinished,
+    TournamentFormat? format,
+    LeagueType? leagueType,
+    int? stage,
+    int? qualifierCount,
+    int? groupCount,
   }) {
-    return MacmahonState(
-      id: id ?? this.id,
-      players: players ?? this.players,
+    return SectionData(
       history: history ?? this.history,
-      currentPairing: currentPairing == _sentinel
-          ? this.currentPairing
-          : currentPairing as PairingResult?,
+      currentPairing: currentPairing == _sentinel ? this.currentPairing : currentPairing as PairingResult?,
       currentRound: currentRound ?? this.currentRound,
-      isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
-      tournamentName: tournamentName ?? this.tournamentName,
-      tournamentDate: tournamentDate ?? this.tournamentDate,
-      tournamentLocation: tournamentLocation ?? this.tournamentLocation,
       isFinished: isFinished ?? this.isFinished,
+      format: format ?? this.format,
+      leagueType: leagueType ?? this.leagueType,
+      stage: stage ?? this.stage,
+      qualifierCount: qualifierCount ?? this.qualifierCount,
+      groupCount: groupCount ?? this.groupCount,
     );
   }
 
   static const _sentinel = Object();
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'players': players.map((p) => p.toJson()).toList(),
     'history': history.map((h) => h.toJson()).toList(),
     'currentPairing': currentPairing?.toJson(),
     'currentRound': currentRound,
-    'tournamentName': tournamentName,
-    'tournamentDate': tournamentDate,
-    'tournamentLocation': tournamentLocation,
     'isFinished': isFinished,
+    'format': format.index,
+    'leagueType': leagueType.index,
+    'stage': stage,
+    'qualifierCount': qualifierCount,
+    'groupCount': groupCount,
   };
 
-  factory MacmahonState.fromJson(Map<String, dynamic> json) {
-    final players = (json['players'] as List)
-        .map((p) => MacmahonPlayer.fromJson(p))
-        .toList();
+  factory SectionData.fromJson(Map<String, dynamic> json, List<MacmahonPlayer> allPlayers) {
+    return SectionData(
+      history: (json['history'] as List? ?? []).map((h) => PairingResult.fromJson(h, allPlayers)).toList(),
+      currentPairing: json['currentPairing'] != null ? PairingResult.fromJson(json['currentPairing'], allPlayers) : null,
+      currentRound: (json['currentRound'] as num?)?.toInt() ?? 1,
+      isFinished: json['isFinished'] as bool? ?? false,
+      format: TournamentFormat.values[(json['format'] as num?)?.toInt() ?? 0],
+      leagueType: LeagueType.values[(json['leagueType'] as num?)?.toInt() ?? 0],
+      stage: (json['stage'] as num?)?.toInt() ?? 1,
+      qualifierCount: (json['qualifierCount'] as num?)?.toInt() ?? 4,
+      groupCount: (json['groupCount'] as num?)?.toInt() ?? 1,
+    );
+  }
+}
 
-    // 마이그레이션: id가 없으면 이름과 날짜로 생성
-    final name = json['tournamentName'] as String? ?? '새 대회';
-    final date = json['tournamentDate'] as String? ?? '';
-    final legacyId = '${name}_$date';
+// ─── 전체 상태 클래스 ──────────────────────────────────────
 
+class MacmahonState {
+  final String id;
+  final List<MacmahonPlayer> players;
+  final Map<String, SectionData> sectionData; // 부별 데이터
+  final String selectedSection; // 현재 선택된 부
+  final String tournamentName;
+  final String tournamentDate;
+  final String tournamentLocation;
+  final bool isLoading;
+  final String? errorMessage;
+
+  const MacmahonState({
+    required this.id,
+    this.players = const [],
+    this.sectionData = const {'일반부': SectionData()},
+    this.selectedSection = '일반부',
+    this.tournamentName = '새 대회',
+    this.tournamentDate = '',
+    this.tournamentLocation = '',
+    this.isLoading = false,
+    this.errorMessage,
+  });
+
+  SectionData get currentSectionData => sectionData[selectedSection] ?? const SectionData();
+  List<MacmahonPlayer> get currentSectionPlayers => players.where((p) => p.section == selectedSection).toList();
+  TournamentFormat get format => currentSectionData.format;
+  int get currentRound => currentSectionData.currentRound;
+  List<PairingResult> get history => currentSectionData.history;
+  PairingResult? get currentPairing => currentSectionData.currentPairing;
+  List<MacmahonPair> get currentPairs => currentPairing?.pairs ?? [];
+  MacmahonPlayer? get byePlayer => currentPairing?.byePlayer;
+  int get stage => currentSectionData.stage;
+  List<String> get sections => sectionData.keys.toList();
+  int get recommendedRounds {
+    final playersForSection = currentSectionPlayers;
+    final topBarCount = playersForSection.where((p) => p.isTopBar).length;
+    return MacmahonUtils.calculateRecommendedRounds(
+      playersForSection.length,
+      topBarCount: topBarCount > 0 ? topBarCount : null,
+    );
+  }
+  bool get isFinished => currentSectionData.isFinished;
+
+  MacmahonState copyWith({
+    String? id,
+    List<MacmahonPlayer>? players,
+    Map<String, SectionData>? sectionData,
+    String? selectedSection,
+    String? tournamentName,
+    String? tournamentDate,
+    String? tournamentLocation,
+    bool? isLoading,
+    String? errorMessage,
+  }) {
     return MacmahonState(
-      id: json['id'] as String? ?? legacyId,
-      players: players,
-      history: (json['history'] as List)
-          .map((h) => PairingResult.fromJson(h, players))
-          .toList(),
-      currentPairing: json['currentPairing'] == null
-          ? null
-          : PairingResult.fromJson(json['currentPairing'], players),
-      currentRound: json['currentRound'] as int,
-      tournamentName: name,
-      tournamentDate: date,
-      tournamentLocation: json['tournamentLocation'] as String? ?? '',
-      isFinished: json['isFinished'] ?? false,
+      id: id ?? this.id,
+      players: players ?? this.players,
+      sectionData: sectionData ?? this.sectionData,
+      selectedSection: selectedSection ?? this.selectedSection,
+      tournamentName: tournamentName ?? this.tournamentName,
+      tournamentDate: tournamentDate ?? this.tournamentDate,
+      tournamentLocation: tournamentLocation ?? this.tournamentLocation,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
     );
   }
 
-  /// 현재 라운드 부전승 선수
-  MacmahonPlayer? get byePlayer => currentPairing?.byePlayer;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'players': players.map((p) => p.toJson()).toList(),
+    'sectionData': sectionData.map((k, v) => MapEntry(k, v.toJson())),
+    'selectedSection': selectedSection,
+    'tournamentName': tournamentName,
+    'tournamentDate': tournamentDate,
+    'tournamentLocation': tournamentLocation,
+  };
 
-  /// 전체 대진 목록 (현재 라운드)
-  List<MacmahonPair> get currentPairs => currentPairing?.pairs ?? [];
-
-  /// 추천 라운드 수
-  int get recommendedRounds {
-    final topBarCount = players.where((p) => p.isTopBar).length;
-    return MacmahonUtils.calculateRecommendedRounds(
-      players.length,
-      topBarCount: topBarCount > 0 ? topBarCount : null,
+  factory MacmahonState.fromJson(Map<String, dynamic> json) {
+    final players = (json['players'] as List).map((p) => MacmahonPlayer.fromJson(p)).toList();
+    final sectionData = (json['sectionData'] as Map<String, dynamic>? ?? {}).map(
+      (k, v) => MapEntry(k, SectionData.fromJson(v as Map<String, dynamic>, players)),
+    );
+    return MacmahonState(
+      id: json['id'] as String,
+      players: players,
+      sectionData: sectionData,
+      selectedSection: json['selectedSection'] as String? ?? '일반부',
+      tournamentName: json['tournamentName'] as String? ?? '새 대회',
+      tournamentDate: json['tournamentDate'] as String? ?? '',
+      tournamentLocation: json['tournamentLocation'] as String? ?? '',
     );
   }
 }
 
 // ─── Notifier ─────────────────────────────────────────────
 
-/// 맥마흔 페어링 Notifier (Riverpod StateNotifier)
 class MacmahonNotifier extends StateNotifier<MacmahonState> {
-  final PairingService _pairingService;
-  final StorageService _storageService;
+  final PairingService _pairingService = PairingService();
+  final StorageService _storageService = StorageService();
 
-  MacmahonNotifier({
-    PairingService? pairingService,
-    StorageService? storageService,
-  }) : _pairingService = pairingService ?? PairingService(),
-       _storageService = storageService ?? StorageService(),
-       super(
-         MacmahonState(id: 'tour_${DateTime.now().millisecondsSinceEpoch}'),
-       );
+  MacmahonNotifier() : super(MacmahonState(id: 'tour_${DateTime.now().millisecondsSinceEpoch}'));
 
-  /// 상태 로드 (기존 기록에서 불러오기)
-  void loadState(MacmahonState loadedState) {
-    state = loadedState;
-  }
+  void loadState(MacmahonState loadedState) => state = loadedState;
 
-  /// 현재 상태 저장
-  Future<void> saveCurrentTournament() async {
-    await _storageService.saveTournament(state);
-  }
+  Future<void> saveCurrentTournament() async => await _storageService.saveTournament(state);
 
-  /// 대회 정보 업데이트
-  void updateTournamentInfo({String? name, String? date, String? location}) {
+  void updateTournamentInfo({
+    String? name,
+    String? date,
+    String? location,
+    List<String>? sections,
+  }) {
+    Map<String, SectionData>? newSectionData;
+    String? firstSection;
+    
+    if (sections != null && sections.isNotEmpty) {
+      newSectionData = {
+        for (var s in sections) s: const SectionData(),
+      };
+      firstSection = sections.first;
+    }
+
     state = state.copyWith(
       tournamentName: name,
       tournamentDate: date,
       tournamentLocation: location,
+      sectionData: newSectionData,
+      selectedSection: firstSection,
     );
   }
 
-  /// 선수 목록 초기화 (대회 정보는 유지 가능하도록 처리)
-  void initializePlayers(List<MacmahonPlayer> players) {
-    state = state.copyWith(
-      players: players,
-      currentRound: 1,
-      history: [],
-      currentPairing: null,
-    );
+  void selectSection(String sectionName) {
+    if (!state.sectionData.containsKey(sectionName)) {
+      final newSectionData = Map<String, SectionData>.from(state.sectionData);
+      newSectionData[sectionName] = const SectionData();
+      state = state.copyWith(sectionData: newSectionData, selectedSection: sectionName);
+    } else {
+      state = state.copyWith(selectedSection: sectionName);
+    }
   }
 
-  /// 선수 추가 (단일)
+  void addSection(String sectionName) {
+    if (sectionName.isEmpty) return;
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[sectionName] = const SectionData();
+    state = state.copyWith(sectionData: newSectionData, selectedSection: sectionName);
+    saveCurrentTournament();
+  }
+
+  void updateSectionSettings({TournamentFormat? format, LeagueType? leagueType, int? qualifierCount, int? groupCount}) {
+    final currentSection = state.selectedSection;
+    final currentData = state.currentSectionData;
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[currentSection] = currentData.copyWith(
+      format: format,
+      leagueType: leagueType,
+      qualifierCount: qualifierCount,
+      groupCount: groupCount,
+    );
+    state = state.copyWith(sectionData: newSectionData);
+    saveCurrentTournament();
+  }
+
   void addPlayer(MacmahonPlayer player) {
     state = state.copyWith(players: [...state.players, player]);
   }
 
-  /// 선수 추가 (다수 일괄 등록)
   void addPlayers(List<MacmahonPlayer> newPlayers) {
     state = state.copyWith(players: [...state.players, ...newPlayers]);
   }
 
-  /// 선수 제거
-  void removePlayer(String playerId) {
+  void addSamplePlayers(int count) {
+    if (count <= 0) return;
+
+    final List<String> baseNames = [
+      '신진서', '박정환', '변상일', '신민준', '김명훈', '강동윤', '원성진', '김지석',
+      '최정', '조한승', '안국현', '이지현', '한승주', '설현준', '최철한', '강승민'
+    ];
+    
+    final List<MacmahonPlayer> samples = [];
+    final currentSection = state.selectedSection;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    for (int i = 0; i < count; i++) {
+      String name = (i < baseNames.length) ? baseNames[i] : '선수 ${i + 1}';
+      
+      samples.add(MacmahonPlayer(
+        id: 'sample_${i}_$now',
+        name: name,
+        section: currentSection,
+        initialMms: 0,
+        currentMms: 0,
+        isTopBar: i < (count ~/ 4).clamp(1, 8), // 약 25%를 Top Bar로 설정 (최대 8명)
+      ));
+    }
+    addPlayers(samples);
+    saveCurrentTournament();
+  }
+
+  void updatePlayer(MacmahonPlayer updatedPlayer) {
     state = state.copyWith(
-      players: state.players.where((p) => p.id != playerId).toList(),
+      players: state.players.map((p) => p.id == updatedPlayer.id ? updatedPlayer : p).toList(),
     );
   }
 
-  /// 선수 이름 수정
+  void removePlayer(String playerId) {
+    state = state.copyWith(players: state.players.where((p) => p.id != playerId).toList());
+  }
+
   void updatePlayerName(String playerId, String newName) {
     if (newName.trim().isEmpty) return;
     state = state.copyWith(
-      players: state.players.map((p) {
-        if (p.id == playerId) {
-          return MacmahonPlayer(
-            id: p.id,
-            name: newName.trim(),
-            initialMms: p.initialMms,
-            currentMms: p.currentMms,
-            isTopBar: p.isTopBar,
-            floatHistory: p.floatHistory,
-            opponents: p.opponents,
-            defeatedOpponents: p.defeatedOpponents,
-            wins: p.wins,
-            losses: p.losses,
-            draws: p.draws,
-            sos: p.sos,
-            sodos: p.sodos,
-            cumulativeScore: p.cumulativeScore,
-          );
-        }
-        return p;
-      }).toList(),
+      players: state.players.map((p) => p.id == playerId ? p.copyWith(name: newName.trim()) : p).toList(),
     );
   }
 
-  /// 현재 라운드 페어링 실행
-  ///
-  /// 1. 비용 행렬 생성
-  /// 2. 헝가리안 알고리즘으로 최적 매칭 계산
-  /// 3. 상태 업데이트
   Future<void> generatePairing({bool isSequentialForR1 = false}) async {
-    if (state.players.isEmpty) {
+    final sectionPlayers = state.currentSectionPlayers;
+    if (sectionPlayers.isEmpty) {
       state = state.copyWith(errorMessage: '선수가 없습니다.');
       return;
     }
@@ -227,270 +327,213 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
 
     try {
       PairingResult result;
+      final currentRound = state.currentRound;
+      final format = state.format;
+      final currentData = state.currentSectionData;
 
-      if (state.currentRound == 1 && isSequentialForR1) {
-        // ✨ 등록순(1-2, 3-4) 매칭 로직 (무거운 HungarianSolver 건너뜀)
-        final pairs = <MacmahonPair>[];
-        MacmahonPlayer? byePlayer;
-        final workingList = List<MacmahonPlayer>.from(state.players);
-
-        if (workingList.length % 2 != 0) {
-          byePlayer = workingList.removeLast(); // 인원이 홀수면 제일 마지막 등록자를 부전승
-        }
-        for (int i = 0; i < workingList.length; i += 2) {
-          pairs.add(
-            MacmahonPair(
-              black: workingList[i],
-              white: workingList[i + 1],
-              cost: 0,
-            ),
-          );
+      if (format == TournamentFormat.league || (format == TournamentFormat.leagueAndKnockout && currentData.stage == 1)) {
+        List<MacmahonPlayer> players = sectionPlayers;
+        // 조 배정 로직 (1라운드 시작 시)
+        if (currentRound == 1 && currentData.groupCount > 1) {
+          if (players.every((p) => p.groupId == null)) {
+            players = _assignGroups(players, currentData.groupCount);
+            _updatePlayersInState(players);
+          }
         }
 
-        result = PairingResult(pairs: pairs, round: 1, byePlayer: byePlayer);
+        if (currentData.groupCount > 1) {
+          result = _pairingService.generateGroupLeaguePairing(players: players, round: currentRound);
+        } else {
+          result = _pairingService.generateLeaguePairing(players: players, round: currentRound);
+        }
+      } else if (format == TournamentFormat.knockout || (format == TournamentFormat.leagueAndKnockout && currentData.stage == 2)) {
+        final survivors = _getKnockoutSurvivors(sectionPlayers, currentData.history);
+        result = _pairingService.generateKnockoutPairing(players: survivors, round: currentRound);
       } else {
-        // 기존 안티그래비티 매칭 (무거운 연산이므로 Future로 처리)
-        result = await Future(
-          () => _pairingService.generatePairing(
-            players: state.players,
-            round: state.currentRound,
-          ),
-        );
+        if (currentRound == 1 && isSequentialForR1) {
+          final workingList = List<MacmahonPlayer>.from(sectionPlayers);
+          final pairs = <MacmahonPair>[];
+          MacmahonPlayer? bye;
+          if (workingList.length % 2 != 0) bye = workingList.removeLast();
+          for (int i = 0; i < workingList.length; i += 2) {
+            pairs.add(MacmahonPair(black: workingList[i], white: workingList[i + 1], cost: 0));
+          }
+          result = PairingResult(pairs: pairs, round: 1, byePlayer: bye);
+        } else {
+          result = await Future(() => _pairingService.generatePairing(players: sectionPlayers, round: currentRound));
+        }
       }
 
-      // floatHistory 및 opponents 반영
       _pairingService.applyPairingResult(result);
-
-      state = state.copyWith(currentPairing: result, isLoading: false);
+      final newSectionData = Map<String, SectionData>.from(state.sectionData);
+      newSectionData[state.selectedSection] = currentData.copyWith(currentPairing: result);
+      state = state.copyWith(sectionData: newSectionData, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: '페어링 오류: $e');
     }
   }
 
-  /// 라운드 결과 입력 (대진표에 승자 기록)
-  void recordResult({
-    required String blackId,
-    required String whiteId,
-    String? winnerId, // null = 무승부
-  }) {
+  void recordResult({required String blackId, required String whiteId, String? winnerId}) {
     if (state.currentPairing == null) return;
-
     final updatedPairs = state.currentPairing!.pairs.map((p) {
-      if (p.black.id == blackId && p.white.id == whiteId) {
-        return p.copyWith(winnerId: winnerId, isResultEntered: true);
-      }
+      if (p.black.id == blackId && p.white.id == whiteId) return p.copyWith(winnerId: winnerId, isResultEntered: true);
       return p;
     }).toList();
-
-    state = state.copyWith(
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[state.selectedSection] = state.currentSectionData.copyWith(
       currentPairing: state.currentPairing!.copyWith(pairs: updatedPairs),
     );
+    state = state.copyWith(sectionData: newSectionData);
   }
 
-  /// 다음 라운드로 진행 (모든 결과 반영 및 히스토리 저장)
   void advanceRound() {
     if (state.currentPairing == null) return;
-
-    // 히스토리에 현재 대진(결과 포함) 추가
-    final updatedHistory = [...state.history, state.currentPairing!];
-
-    // 전체 상태 재정산 (Atomic Update)
-    final replayedPlayers = _calculatePlayersFromHistory(updatedHistory);
-
-    state = state.copyWith(
-      players: replayedPlayers,
+    final currentData = state.currentSectionData;
+    final updatedHistory = [...currentData.history, currentData.currentPairing!];
+    final replayedPlayers = _calculatePlayersFromHistory(updatedHistory, state.currentSectionPlayers);
+    _updatePlayersInState(replayedPlayers);
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[state.selectedSection] = currentData.copyWith(
       history: updatedHistory,
       currentRound: updatedHistory.length + 1,
       currentPairing: null,
     );
-
-    // SOS 재계산 및 저장
+    state = state.copyWith(sectionData: newSectionData);
     computeTieBreakers();
     saveCurrentTournament();
   }
 
-  /// 마지막 라운드 취소 (Undo)
-  /// 마지막 라운드 취소 (Undo)
-  ///
-  /// currentPairing 여부와 무관하게 항상 히스토리 마지막을 대진표로 복구합니다.
-  /// 2라운드 대진표 -> 취소 -> 1라운드 결과 수정 화면으로 바로 이동
   void undoLastRound() {
-    if (state.history.isEmpty) return;
-
-    final restoredPairing = state.history.last;
-    final newHistory = state.history.sublist(0, state.history.length - 1);
-    final replayedPlayers = _calculatePlayersFromHistory(newHistory);
-
-    state = state.copyWith(
-      players: replayedPlayers,
+    final currentData = state.currentSectionData;
+    if (currentData.history.isEmpty) return;
+    final restoredPairing = currentData.history.last;
+    final newHistory = currentData.history.sublist(0, currentData.history.length - 1);
+    final replayedPlayers = _calculatePlayersFromHistory(newHistory, state.currentSectionPlayers);
+    _updatePlayersInState(replayedPlayers);
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[state.selectedSection] = currentData.copyWith(
       history: newHistory,
       currentRound: newHistory.length + 1,
       currentPairing: restoredPairing,
     );
-
+    state = state.copyWith(sectionData: newSectionData);
     computeTieBreakers();
     saveCurrentTournament();
   }
 
-  /// 히스토리를 기반으로 선수들을 처음부터 다시 시뮬레이션하여 점수를 계산한 리스트를 반환합니다.
-  List<MacmahonPlayer> _calculatePlayersFromHistory(
-    List<PairingResult> history,
-  ) {
-    // 1. 모든 선수 초기화
-    final players = state.players.map((p) {
-      return MacmahonPlayer(
-        id: p.id,
-        name: p.name,
-        initialMms: p.initialMms,
-        currentMms: p.initialMms,
-        isTopBar: p.isTopBar,
-        opponents: {},
-        defeatedOpponents: {},
-        floatHistory: [],
-        cumulativeScore: 0.0,
-      );
-    }).toList();
+  List<MacmahonPlayer> _calculatePlayersFromHistory(List<PairingResult> history, List<MacmahonPlayer> sectionPlayers) {
+    final players = sectionPlayers.map((p) => p.copyWith(
+      currentMms: p.initialMms, wins: 0, losses: 0, draws: 0, opponents: {}, defeatedOpponents: {}, floatHistory: [], cumulativeScore: 0.0,
+    )).toList();
 
-    // 2. 히스토리 순회하며 결과 적용
     for (final roundResult in history) {
       for (final pair in roundResult.pairs) {
-        final black = players.firstWhere((p) => p.id == pair.black.id);
-        final white = players.firstWhere((p) => p.id == pair.white.id);
-
-        black.addOpponent(white.id);
-        white.addOpponent(black.id);
-        black.floatHistory.add(pair.blackFloatResult);
-        white.floatHistory.add(pair.whiteFloatResult);
-
-        if (pair.winnerId == black.id) {
-          black.wins++;
-          black.currentMms += 1.0;
-          black.defeatedOpponents.add(white.id);
-          white.losses++;
-        } else if (pair.winnerId == white.id) {
-          white.wins++;
-          white.currentMms += 1.0;
-          white.defeatedOpponents.add(black.id);
-          black.losses++;
-        } else if (pair.isResultEntered) {
-          black.draws++;
-          black.currentMms += 0.5;
-          white.draws++;
-          white.currentMms += 0.5;
-        }
+        final b = players.firstWhere((p) => p.id == pair.black.id);
+        final w = players.firstWhere((p) => p.id == pair.white.id);
+        b.addOpponent(w.id); w.addOpponent(b.id);
+        b.floatHistory.add(pair.blackFloatResult); w.floatHistory.add(pair.whiteFloatResult);
+        if (pair.winnerId == b.id) { b.wins++; b.currentMms += 1.0; b.defeatedOpponents.add(w.id); w.losses++; }
+        else if (pair.winnerId == w.id) { w.wins++; w.currentMms += 1.0; w.defeatedOpponents.add(b.id); b.losses++; }
+        else if (pair.isResultEntered) { b.draws++; b.currentMms += 0.5; w.draws++; w.currentMms += 0.5; }
       }
-
       if (roundResult.byePlayer != null) {
-        final bye = players.firstWhere(
-          (p) => p.id == roundResult.byePlayer!.id,
-        );
-        bye.currentMms += 1.0;
-        bye.wins++;
-        bye.floatHistory.add(0);
+        final bye = players.firstWhere((p) => p.id == roundResult.byePlayer!.id);
+        bye.currentMms += 1.0; bye.wins++; bye.floatHistory.add(0);
       }
-
-      for (final p in players) {
-        p.updateCumulativeScore();
-      }
+      for (final p in players) p.updateCumulativeScore();
     }
     return players;
   }
 
-  void _recalculateStateFromHistory(List<PairingResult> history) {
-    // 기존 메서드는 내부적으로 사용하지 않거나 하위 호환을 위해 유지 (이제는 Atomic 업데이트 권중)
-    final newPlayers = _calculatePlayersFromHistory(history);
-    state = state.copyWith(
-      players: newPlayers,
-      history: history,
-      currentRound: history.length + 1,
-      currentPairing: null,
-    );
-    computeTieBreakers();
-  }
-
-  /// 모든 선수의 SOS 및 SODOS를 다시 계산합니다.
-  /// (상대의 MMS가 변경될 때마다 전체가 업데이트되어야 함)
   void computeTieBreakers() {
     final players = state.players;
     final updatedPlayers = players.map((p) {
-      double newSos = 0.0;
-
-      for (final opponentId in p.opponents) {
-        // 상대 선수 찾기
-        final opponent = players.firstWhere(
-          (other) => other.id == opponentId,
-          orElse: () => MacmahonPlayer(
-            id: '',
-            name: '',
-            initialMms: 0.0,
-            currentMms: 0.0,
-          ), // fallback with doubles
-        );
-
-        if (opponent.id.isNotEmpty) {
-          newSos += opponent.currentMms;
-        }
+      if (p.section != state.selectedSection) return p;
+      double sos = 0;
+      for (final oId in p.opponents) {
+        final o = players.firstWhere((other) => other.id == oId, orElse: () => p);
+        if (o.id != p.id) sos += o.currentMms;
       }
-
-      // SODOS 재계산: 내가 이긴 상대의 현재 MMS 합계
-      double newSodos = 0.0;
-      for (final defeatedId in p.defeatedOpponents) {
-        final opponent = players.firstWhere(
-          (other) => other.id == defeatedId,
-          orElse: () =>
-              MacmahonPlayer(id: '', name: '', initialMms: 0, currentMms: 0),
-        );
-        if (opponent.id.isNotEmpty) {
-          newSodos += opponent.currentMms;
-        }
+      double sodos = 0;
+      for (final dId in p.defeatedOpponents) {
+        final o = players.firstWhere((other) => other.id == dId, orElse: () => p);
+        if (o.id != p.id) sodos += o.currentMms;
       }
-
-      return MacmahonPlayer(
-        id: p.id,
-        name: p.name,
-        initialMms: p.initialMms,
-        currentMms: p.currentMms,
-        isTopBar: p.isTopBar,
-        floatHistory: p.floatHistory,
-        opponents: p.opponents,
-        defeatedOpponents: p.defeatedOpponents,
-        wins: p.wins,
-        losses: p.losses,
-        draws: p.draws,
-        sos: newSos,
-        sodos: newSodos,
-        cumulativeScore: p.cumulativeScore, // 누계 점수 유지
-      );
+      return p.copyWith(sos: sos, sodos: sodos);
     }).toList();
-
     state = state.copyWith(players: updatedPlayers);
   }
 
-  /// 현재 진행 중인 대회를 저장하고 새로운 대회를 시작합니다.
-  Future<void> startNewTournament() async {
-    // 1. 현재 대회가 유효한 데이터가 있다면 저장
-    if (state.players.isNotEmpty || state.tournamentName != '새 대회') {
-      await saveCurrentTournament();
+  List<MacmahonPlayer> _getKnockoutSurvivors(List<MacmahonPlayer> players, List<PairingResult> history) {
+    if (history.isEmpty) return players;
+    final lastRound = history.last;
+    final winners = <MacmahonPlayer>[];
+    for (final pair in lastRound.pairs) {
+      if (pair.winnerId != null) winners.add(players.firstWhere((p) => p.id == pair.winnerId));
     }
-    // 2. 상태 초기화
+    if (lastRound.byePlayer != null) winners.add(players.firstWhere((p) => p.id == lastRound.byePlayer!.id));
+    return winners;
+  }
+
+  List<MacmahonPlayer> _assignGroups(List<MacmahonPlayer> players, int groupCount) {
+    if (groupCount <= 1) return players;
+    final sorted = List<MacmahonPlayer>.from(players)..shuffle();
+    final updated = <MacmahonPlayer>[];
+    for (int i = 0; i < sorted.length; i++) {
+      final label = String.fromCharCode(65 + (i % groupCount));
+      updated.add(sorted[i].copyWith(groupId: label));
+    }
+    return updated;
+  }
+
+  void _updatePlayersInState(List<MacmahonPlayer> updatedSectionPlayers) {
+    final all = List<MacmahonPlayer>.from(state.players);
+    for (final u in updatedSectionPlayers) {
+      final idx = all.indexWhere((p) => p.id == u.id);
+      if (idx != -1) all[idx] = u;
+    }
+    state = state.copyWith(players: all);
+  }
+
+  void startKnockoutStage() {
+    final currentData = state.currentSectionData;
+    if (currentData.stage != 1) return;
+
+    // 현재 순위 기준으로 상위 N명 선발
+    final sectionPlayers = List<MacmahonPlayer>.from(state.currentSectionPlayers);
+    sectionPlayers.sort((a, b) => _comparePlayers(b, a)); // 내림차순 정렬
+
+    final qualifiers = sectionPlayers.take(currentData.qualifierCount).toList();
+
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[state.selectedSection] = currentData.copyWith(
+      stage: 2,
+      currentRound: 1, // 토너먼트 1라운드부터 시작
+      currentPairing: null,
+    );
+
+    state = state.copyWith(sectionData: newSectionData);
+    saveCurrentTournament();
+  }
+
+  int _comparePlayers(MacmahonPlayer a, MacmahonPlayer b) {
+    if (a.currentMms != b.currentMms) return a.currentMms.compareTo(b.currentMms);
+    if (a.sos != b.sos) return a.sos.compareTo(b.sos);
+    if (a.sodos != b.sodos) return a.sodos.compareTo(b.sodos);
+    return a.cumulativeScore.compareTo(b.cumulativeScore);
+  }
+
+  Future<void> startNewTournament() async {
+    if (state.players.isNotEmpty || state.tournamentName != '새 대회') await saveCurrentTournament();
     state = MacmahonState(id: 'tour_${DateTime.now().millisecondsSinceEpoch}');
   }
 
-  /// 대회 종료 상태 토글
   Future<void> toggleTournamentStatus() async {
-    state = state.copyWith(isFinished: !state.isFinished);
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[state.selectedSection] = state.currentSectionData.copyWith(isFinished: !state.isFinished);
+    state = state.copyWith(sectionData: newSectionData);
     await saveCurrentTournament();
-  }
-
-  /// 대회 리셋 (저장 없이 강제 초기화 시 사용 가능)
-  void resetTournament() {
-    state = MacmahonState(id: 'tour_${DateTime.now().millisecondsSinceEpoch}');
   }
 }
 
-// ─── Provider ─────────────────────────────────────────────
-
-/// 맥마흔 페어링 Provider
-final macmahonProvider = StateNotifierProvider<MacmahonNotifier, MacmahonState>(
-  (ref) => MacmahonNotifier(),
-);
+final macmahonProvider = StateNotifierProvider<MacmahonNotifier, MacmahonState>((ref) => MacmahonNotifier());
