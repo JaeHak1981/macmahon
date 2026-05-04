@@ -34,8 +34,9 @@ class MacmahonUtils {
     List<MacmahonPlayer> players,
     TournamentFormat format,
     List<MacmahonPlayer> outSorted,
-    Map<String, int> outRanks,
-  ) {
+    Map<String, int> outRanks, {
+    bool useHeadToHead = true,
+  }) {
     // 1. 그룹별 분리
     final groups = <String, List<MacmahonPlayer>>{};
     for (var p in players) {
@@ -61,16 +62,22 @@ class MacmahonUtils {
       for (var mms in sortedMms) {
         final tiedPlayers = mmsGroups[mms]!;
 
-        // 2차: 동률 그룹 내 승자승(Internal Wins) 계산
+        // 2차: 승자승 적용 여부에 따라 동률 그룹 내 Internal Wins 계산
         final internalWins = <String, int>{};
-        for (var p in tiedPlayers) {
-          int wins = 0;
-          for (var opp in tiedPlayers) {
-            if (p.id != opp.id && p.defeatedOpponents.contains(opp.id)) {
-              wins++;
+        if (useHeadToHead) {
+          for (var p in tiedPlayers) {
+            int wins = 0;
+            for (var opp in tiedPlayers) {
+              if (p.id != opp.id && p.defeatedOpponents.contains(opp.id)) {
+                wins++;
+              }
             }
+            internalWins[p.id] = wins;
           }
-          internalWins[p.id] = wins;
+        } else {
+          for (var p in tiedPlayers) {
+            internalWins[p.id] = 0; // 승자승 미적용 시 동률 유지
+          }
         }
 
         // 3차: 다중 조건 정렬 (내부 승수 -> SODOS -> SOS -> 누진점수 -> 초기 서열 -> 총 승수)

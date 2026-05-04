@@ -38,7 +38,10 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
 
     final sorted = <MacmahonPlayer>[];
     final playerRanks = <String, int>{};
-    MacmahonUtils.computeStandings(players, state.format, sorted, playerRanks);
+    MacmahonUtils.computeStandings(
+      players, state.format, sorted, playerRanks,
+      useHeadToHead: state.currentSectionData.useHeadToHead,
+    );
 
     final playerNumbers = _getPlayerNumbers(players);
 
@@ -1448,6 +1451,66 @@ class _LeagueMatrixTab extends ConsumerWidget {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ── 승자승 적용 여부 토글 (리그전 전용) ──
+        if (!isExport)
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: state.currentSectionData.useHeadToHead
+                  ? AppTheme.primary.withValues(alpha: 0.08)
+                  : Colors.grey.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: state.currentSectionData.useHeadToHead
+                    ? AppTheme.primary.withValues(alpha: 0.3)
+                    : Colors.grey.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.compare_arrows,
+                  size: 20,
+                  color: state.currentSectionData.useHeadToHead
+                      ? AppTheme.primary
+                      : Colors.grey,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '동률 시 승자승 적용',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: state.currentSectionData.useHeadToHead
+                              ? AppTheme.primary
+                              : Colors.grey[700],
+                        ),
+                      ),
+                      Text(
+                        state.currentSectionData.useHeadToHead
+                            ? '동점자 간 직접 대결 결과로 순위를 결정합니다'
+                            : '동점자는 공동 순위로 처리됩니다',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: state.currentSectionData.useHeadToHead,
+                  activeColor: AppTheme.primary,
+                  onChanged: (val) {
+                    ref.read(macmahonProvider.notifier)
+                        .updateSectionSettings(useHeadToHead: val);
+                  },
+                ),
+              ],
+            ),
+          ),
         ...sortedGroupKeys.map((groupName) {
           final groupPlayers = stableGroups[groupName]!;
           return Column(

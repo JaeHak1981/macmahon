@@ -34,6 +34,7 @@ class SectionData {
   final int qualifierCount;
   final int groupCount;
   final List<String> knockoutQualifiers; // 수동으로 선택된 본선 진출자 ID 목록
+  final bool useHeadToHead; // 동률 시 승자승 적용 여부
 
   const SectionData({
     this.history = const [],
@@ -46,6 +47,7 @@ class SectionData {
     this.qualifierCount = 4,
     this.groupCount = 1,
     this.knockoutQualifiers = const [],
+    this.useHeadToHead = true,
   });
 
   SectionData copyWith({
@@ -59,6 +61,7 @@ class SectionData {
     int? qualifierCount,
     int? groupCount,
     List<String>? knockoutQualifiers,
+    bool? useHeadToHead,
   }) {
     return SectionData(
       history: history ?? this.history,
@@ -71,6 +74,7 @@ class SectionData {
       qualifierCount: qualifierCount ?? this.qualifierCount,
       groupCount: groupCount ?? this.groupCount,
       knockoutQualifiers: knockoutQualifiers ?? this.knockoutQualifiers,
+      useHeadToHead: useHeadToHead ?? this.useHeadToHead,
     );
   }
 
@@ -87,6 +91,7 @@ class SectionData {
     'qualifierCount': qualifierCount,
     'groupCount': groupCount,
     'knockoutQualifiers': knockoutQualifiers,
+    'useHeadToHead': useHeadToHead,
   };
 
   factory SectionData.fromJson(Map<String, dynamic> json, List<MacmahonPlayer> allPlayers) {
@@ -101,6 +106,7 @@ class SectionData {
       qualifierCount: (json['qualifierCount'] as num?)?.toInt() ?? 4,
       groupCount: (json['groupCount'] as num?)?.toInt() ?? 1,
       knockoutQualifiers: List<String>.from(json['knockoutQualifiers'] ?? []),
+      useHeadToHead: json['useHeadToHead'] as bool? ?? true,
     );
   }
 }
@@ -327,7 +333,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     saveCurrentTournament();
   }
 
-  void updateSectionSettings({TournamentFormat? format, LeagueType? leagueType, int? qualifierCount, int? groupCount}) {
+  void updateSectionSettings({TournamentFormat? format, LeagueType? leagueType, int? qualifierCount, int? groupCount, bool? useHeadToHead}) {
     final currentSection = state.selectedSection;
     final currentData = state.currentSectionData;
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
@@ -336,6 +342,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
       leagueType: leagueType,
       qualifierCount: qualifierCount,
       groupCount: groupCount,
+      useHeadToHead: useHeadToHead,
     );
     state = state.copyWith(sectionData: newSectionData);
     saveCurrentTournament();
