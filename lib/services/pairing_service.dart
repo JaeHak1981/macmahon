@@ -196,6 +196,42 @@ class PairingService {
     );
   }
 
+  /// 수동 대진 생성 (입력받은 리스트 순서 그대로 1-2, 3-4 매칭)
+  PairingResult generateKnockoutPairingManual({
+    required List<MacmahonPlayer> orderedPlayers,
+    required int round,
+  }) {
+    if (orderedPlayers.isEmpty) return PairingResult(pairs: [], round: round);
+
+    int n = orderedPlayers.length;
+    MacmahonPlayer? byePlayer;
+
+    // 리스트의 마지막 선수를 부전승으로 임시 배정
+    if (n % 2 != 0) {
+      byePlayer = orderedPlayers.last;
+    }
+
+    final List<MacmahonPlayer> remaining =
+        byePlayer != null ? orderedPlayers.sublist(0, n - 1) : orderedPlayers;
+
+    final List<MacmahonPair> pairs = [];
+
+    // 리스트 순서대로 2명씩 짝지음
+    for (int i = 0; i < remaining.length; i += 2) {
+      pairs.add(MacmahonPair(
+        black: remaining[i],
+        white: remaining[i + 1],
+        cost: 0,
+      ));
+    }
+
+    return PairingResult(
+      pairs: pairs,
+      round: round,
+      byePlayers: byePlayer != null ? [byePlayer] : [],
+    );
+  }
+
   /// 풀리그의 모든 대진을 한 번에 생성합니다.
   PairingResult generateAllLeagueMatches({
     required List<MacmahonPlayer> players,

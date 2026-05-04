@@ -29,15 +29,36 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
   void _initializeData() {
     final state = ref.read(macmahonProvider);
     final players = state.currentSectionPlayers;
-    
+    final sd = state.currentSectionData;
+
     _rankedPlayers = [];
     _playerRanks = {};
-    MacmahonUtils.computeStandings(players, state.format, _rankedPlayers, _playerRanks);
+    MacmahonUtils.computeStandings(
+        players, state.format, _rankedPlayers, _playerRanks);
 
-    // Initial selection: top N players based on qualifierCount
-    final qualifierCount = state.currentSectionData.qualifierCount;
-    for (int i = 0; i < _rankedPlayers.length && i < qualifierCount; i++) {
-      _selectedPlayerIds.add(_rankedPlayers[i].id);
+    // Initial selection: 조별 진출 인원(qualifiersPerGroup) 기준 적용
+    _selectedPlayerIds.clear();
+    if (sd.groupCount > 1) {
+      final perGroup = sd.qualifiersPerGroup;
+      final Map<String, List<MacmahonPlayer>> groupMap = {};
+
+      for (final p in _rankedPlayers) {
+        final gid = p.groupId ?? 'default';
+        groupMap.putIfAbsent(gid, () => []).add(p);
+      }
+
+      for (final gid in groupMap.keys) {
+        final groupPlayers = groupMap[gid]!;
+        for (int i = 0; i < groupPlayers.length && i < perGroup; i++) {
+          _selectedPlayerIds.add(groupPlayers[i].id);
+        }
+      }
+    } else {
+      // 기존 전체 순위 기반 선발 (조가 1개인 경우)
+      final qualifierCount = sd.qualifierCount;
+      for (int i = 0; i < _rankedPlayers.length && i < qualifierCount; i++) {
+        _selectedPlayerIds.add(_rankedPlayers[i].id);
+      }
     }
     setState(() {});
   }

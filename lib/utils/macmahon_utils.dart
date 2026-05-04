@@ -133,4 +133,28 @@ class MacmahonUtils {
       }
     }
   }
+
+  /// 라운드 번호를 토너먼트 명칭(8강, 4강 등)으로 변환합니다.
+  static String getRoundName({
+    required int currentRound,
+    required int totalRounds,
+    required TournamentFormat format,
+    required int playerCount,
+    int stage = 1, // 단계 정보 추가
+  }) {
+    // 1. 순수 리그전이거나 혼합 방식의 예선 단계(stage 1)인 경우
+    if (format == TournamentFormat.league || stage == 1) {
+      return '$currentRound라운드';
+    }
+    
+    // 2. 토너먼트인 경우 (knockout 또는 stage 2)
+    final remainingRounds = totalRounds - currentRound;
+    
+    if (remainingRounds == 0) return '결승전';
+    if (remainingRounds == 1) return '준결승(4강)';
+    
+    // 남은 라운드 수에 따른 강수 계산 (2^(남은라운드+1))
+    final stageNum = math.pow(2, remainingRounds + 1).toInt();
+    return '$stageNum강전';
+  }
 }

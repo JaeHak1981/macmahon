@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:screenshot/screenshot.dart';
+import 'dart:math' as math;
 import '../app_theme.dart';
 import '../models/macmahon_player.dart';
 import '../models/macmahon_pair.dart';
@@ -23,7 +24,6 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
   final ScrollController _verticalController = ScrollController();
   final ScrollController _horizontalController = ScrollController();
   final ScreenshotController _screenshotController = ScreenshotController();
-  TabController? _tabController;
 
   @override
   void dispose() {
@@ -51,15 +51,45 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
         (state.format == TournamentFormat.leagueAndKnockout &&
             state.stage == 1);
 
+    final isMixedFormat = state.format == TournamentFormat.leagueAndKnockout;
     final showBracketTab = state.format == TournamentFormat.knockout ||
-        (state.format == TournamentFormat.leagueAndKnockout && state.stage == 2);
-    final tabsCount = 2; // 순위표 + (결과표 or 대진표)
+        (isMixedFormat && state.stage == 2);
+    
+    // 혼합 방식 본선일 때는 3개 탭 (순위표, 리그표, 대진표)
+    final bool showLeagueGridWithBracket = isMixedFormat && state.stage == 2;
+    final tabsCount = showLeagueGridWithBracket ? 3 : 2;
+
+    final currentData = state.currentSectionData;
+    final currentPairing = currentData.currentPairing;
+    final isFinished = currentData.isFinished;
+    final allResultsEntered = currentPairing != null &&
+        currentPairing.pairs.every((p) => p.isResultEntered);
+
+    final qCount = currentData.knockoutQualifiers.isNotEmpty
+        ? currentData.knockoutQualifiers.length
+        : state.currentSectionPlayers.length;
+
+    final currentRound = state.currentSectionData.currentRound;
+    // 리그전이면 고정된 추천 라운드, 토너먼트면 진출 인원 기준 log2(N)
+    final totalRounds = isLeagueStage
+        ? MacmahonUtils.calculateRecommendedRounds(state.currentSectionPlayers.length)
+        : (qCount > 1 ? (math.log(qCount) / math.log(2)).ceil() : 1);
+        
+    final isLastRound = currentRound >= totalRounds;
+
+    final roundName = MacmahonUtils.getRoundName(
+      currentRound: currentRound,
+      totalRounds: totalRounds,
+      format: state.format,
+      playerCount: qCount,
+      stage: state.stage,
+    );
 
     final appBar = AppBar(
       title: Text(
         state.tournamentName.isNotEmpty
-            ? '${state.tournamentName} - ${state.selectedSection} 결과'
-            : '${state.selectedSection} 대회 결과',
+            ? '${state.tournamentName} - ${state.selectedSection} ($roundName)'
+            : '${state.selectedSection} ($roundName)',
       ),
       bottom: isLeagueStage
           ? null
@@ -67,16 +97,36 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
               isScrollable: true,
               tabs: [
                 const Tab(text: '순위표', icon: Icon(Icons.format_list_numbered)),
-                if (!showBracketTab)
-                  const Tab(text: '결과표 (Grid)', icon: Icon(Icons.grid_on)),
+                if (showLeagueGridWithBracket || !showBracketTab)
+                  const Tab(text: '리그표 (Grid)', icon: Icon(Icons.grid_on)),
                 if (showBracketTab)
-                  const Tab(text: '대진표 (Bracket)', icon: Icon(Icons.account_tree_outlined)),
+                  const Tab(
+                      text: '대진표 (Bracket)',
+                      icon: Icon(Icons.account_tree_outlined)),
               ],
               indicatorColor: AppTheme.primary,
               labelColor: AppTheme.primary,
               unselectedLabelColor: AppTheme.textSecondary,
             ),
       actions: [
+        if (!isFinished && !isLeagueStage) ...[
+          if (allResultsEntered)
+            TextButton.icon(
+              onPressed: () => _handleAdvanceAndPairing(context, ref, isLastRound),
+              icon: Icon(isLastRound ? Icons.emoji_events : Icons.bolt,
+                  color: Colors.blue),
+              label: Text(
+                isLastRound ? '대회 종료 및 확정' : '라운드 종료 및 다음 대진 생성',
+                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+              ),
+            )
+          else if (currentPairing == null)
+            TextButton.icon(
+              onPressed: () => _handleGeneratePairing(context, ref),
+              icon: const Icon(Icons.bolt, color: Colors.orange),
+              label: const Text('대진 생성', style: TextStyle(color: Colors.orange)),
+            ),
+        ],
         IconButton(
           tooltip: '점수 안내',
           icon: const Icon(Icons.help_outline),
@@ -95,14 +145,19 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             isLeagueStage,
           ),
         ),
-        IconButton(
-          tooltip: '이미지로 저장 (PNG)',
-          icon: const Icon(Icons.image_outlined),
-          onPressed: () async {
-            int currentIndex = _tabController?.index ?? 0;
+        Builder(
+          builder: (innerContext) => IconButton(
+            tooltip: '이미지로 저장 (PNG)',
+            icon: const Icon(Icons.image_outlined),
+            onPressed: () async {
+              // 리그전이 아닐 때만 탭 인덱스 조회 (리그전은 탭이 없음)
+              int currentIndex = 0;
+              if (!isLeagueStage) {
+                currentIndex = DefaultTabController.of(innerContext).index;
+              }
 
-            // 현재 스크린의 상태(탭 등)에 맞는 위젯을 생성하여 전체 캡처
-            final exportWidget = Material(
+              // 현재 스크린의 상태(탭 등)에 맞는 위젯을 생성하여 전체 캡처
+              final exportWidget = Material(
               color: Colors.transparent,
               child: Padding(
                 padding: const EdgeInsets.all(40),
@@ -195,7 +250,8 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             }
           },
         ),
-      ],
+      ),
+    ],
     );
 
     final content = Screenshot(
@@ -215,55 +271,126 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                       onResultTap: (p1, p2, pair) =>
                           _showResultInput(context, ref, p1, p2, pair),
                     )
-              : TabBarView(
-                  children: [
-                    _RankingsTab(
-                      state: state,
-                      sorted: sorted,
-                      playerNumbers: playerNumbers,
-                      playerRanks: playerRanks,
-                      onResultTap: (p1, p2, pair) =>
-                          _showResultInput(context, ref, p1, p2, pair),
+                  : TabBarView(
+                      children: [
+                        _RankingsTab(
+                          state: state,
+                          sorted: sorted,
+                          playerNumbers: playerNumbers,
+                          playerRanks: playerRanks,
+                          onResultTap: (p1, p2, pair) =>
+                              _showResultInput(context, ref, p1, p2, pair),
+                        ),
+                        if (showLeagueGridWithBracket)
+                          _LeagueMatrixTab(
+                            state: state,
+                            sorted: sorted,
+                            playerNumbers: playerNumbers,
+                            playerRanks: playerRanks,
+                            onResultTap: (_, __, ___) {}, // 조회용
+                          ),
+                        if (!showBracketTab)
+                          _ResultGridTab(
+                            state: state,
+                            sorted: sorted,
+                            playerNumbers: playerNumbers,
+                            playerRanks: playerRanks,
+                            verticalController: _verticalController,
+                            horizontalController: _horizontalController,
+                            onResultTap: (p1, p2, pair) =>
+                                _showResultInput(context, ref, p1, p2, pair),
+                          ),
+                        if (showBracketTab) const BracketScreen(),
+                      ],
                     ),
-                    if (!showBracketTab)
-                      _ResultGridTab(
-                        state: state,
-                        sorted: sorted,
-                        playerNumbers: playerNumbers,
-                        playerRanks: playerRanks,
-                        verticalController: _verticalController,
-                        horizontalController: _horizontalController,
-                        onResultTap: (p1, p2, pair) =>
-                            _showResultInput(context, ref, p1, p2, pair),
-                      ),
-                    if (showBracketTab)
-                      const BracketScreen(),
-                  ],
-                ),
             ),
           ),
         ),
       ),
     );
 
-    if (!isLeagueStage && _tabController == null) {
-      return DefaultTabController(
-        initialIndex: widget.initialIndex.clamp(0, tabsCount - 1),
-        length: tabsCount,
-        child: Builder(builder: (context) {
-          _tabController = DefaultTabController.of(context);
-          return Scaffold(
-            appBar: appBar,
-            body: content,
-          );
-        }),
+    if (isLeagueStage) {
+      return Scaffold(
+        appBar: appBar,
+        body: content,
       );
     }
 
-    return Scaffold(
-      appBar: appBar,
-      body: content,
+    return DefaultTabController(
+      initialIndex: widget.initialIndex.clamp(0, tabsCount - 1),
+      length: tabsCount,
+      child: Builder(builder: (context) {
+        return Scaffold(
+          appBar: appBar,
+          body: content,
+        );
+      }),
     );
+  }
+
+  Future<void> _handleAdvanceAndPairing(
+      BuildContext context, WidgetRef ref, bool isLastRound) async {
+    final title = isLastRound ? '대회 종료' : '라운드 종료 및 다음 대진 생성';
+    final content = isLastRound
+        ? '마지막 라운드입니다. 대회를 종료하고 최종 순위를 확정하시겠습니까?'
+        : '현재 라운드를 종료하고 다음 라운드 대진을 자동으로 생성하시겠습니까?';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(isLastRound ? '종료 및 확정' : '종료 후 대진 생성')),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final notifier = ref.read(macmahonProvider.notifier);
+      // 1. 라운드 종료
+      notifier.advanceRound();
+
+      // 2. 마지막 라운드가 아니면 즉시 다음 대진 생성
+      if (!isLastRound) {
+        await notifier.generatePairing();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(isLastRound ? '대회가 종료되었습니다.' : '다음 라운드 대진이 생성되었습니다.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleGeneratePairing(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('다음 대진 생성'),
+        content: const Text('다음 라운드 대진을 자동으로 생성하시겠습니까?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('생성하기')),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(macmahonProvider.notifier).generatePairing();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('새로운 대진이 생성되었습니다.')),
+        );
+      }
+    }
   }
 
   void _showResultInput(BuildContext context, WidgetRef ref, MacmahonPlayer p1,
@@ -280,30 +407,30 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             label: 'O (승)',
             color: Colors.blue,
             onPressed: () {
+              Navigator.pop(ctx);
               ref
                   .read(macmahonProvider.notifier)
                   .recordResultByPlayers(p1.id, p2.id, p1.id);
-              Navigator.pop(ctx);
             },
           ),
           _ResultButton(
             label: 'X (패)',
             color: Colors.red,
             onPressed: () {
+              Navigator.pop(ctx);
               ref
                   .read(macmahonProvider.notifier)
                   .recordResultByPlayers(p1.id, p2.id, p2.id);
-              Navigator.pop(ctx);
             },
           ),
           _ResultButton(
             label: '△ (무)',
             color: Colors.orange,
             onPressed: () {
+              Navigator.pop(ctx);
               ref
                   .read(macmahonProvider.notifier)
                   .recordResultByPlayers(p1.id, p2.id, null);
-              Navigator.pop(ctx);
             },
           ),
         ],
@@ -710,25 +837,27 @@ class _ResultGridTab extends StatelessWidget {
       );
     }
 
-    // 선수별 라운드 종료 후 MMS 히스토리 계산
+    // 선수별 라운드 종료 후 MMS 히스토리 계산 (O(R*N)으로 최적화)
     final playerMmsByRound = <String, List<double>>{};
     for (final p in sorted) {
       playerMmsByRound[p.id] = [p.initialMms];
     }
 
+    // 각 라운드별 선수 대진 맵 사전 생성 (연산량 대폭 감소)
+    final List<Map<String, MacmahonPair>> roundPairMaps = [];
+
     for (int r = 0; r < state.history.length; r++) {
       final roundResult = state.history[r];
+      final Map<String, MacmahonPair> roundPairMap = {};
+      for (final pair in roundResult.pairs) {
+        roundPairMap[pair.black.id] = pair;
+        roundPairMap[pair.white.id] = pair;
+      }
+      roundPairMaps.add(roundPairMap);
+
       for (final p in sorted) {
         double current = playerMmsByRound[p.id]!.last;
-
-        MacmahonPair? pair;
-        try {
-          pair = roundResult.pairs.firstWhere(
-            (pair) => pair.black.id == p.id || pair.white.id == p.id,
-          );
-        } catch (_) {
-          pair = null;
-        }
+        final pair = roundPairMap[p.id];
 
         if (pair != null) {
           if (pair.winnerId == p.id) {
@@ -746,13 +875,21 @@ class _ResultGridTab extends StatelessWidget {
     final allRounds = [...state.history];
     if (state.currentPairing != null) {
       allRounds.add(state.currentPairing!);
+      // 현재 진행 중인 대진도 맵에 추가
+      final Map<String, MacmahonPair> currentPairMap = {};
+      for (final pair in state.currentPairing!.pairs) {
+        currentPairMap[pair.black.id] = pair;
+        currentPairMap[pair.white.id] = pair;
+      }
+      roundPairMaps.add(currentPairMap);
     }
     final roundsCount = allRounds.length;
     const headerGreen = Color(0xFFDCEDC8);
 
     // 순번(playerNum) 기준으로 정렬
     final gridPlayers = List<MacmahonPlayer>.from(sorted)
-      ..sort((a, b) => (playerNumbers[a.id] ?? 999).compareTo(playerNumbers[b.id] ?? 999));
+      ..sort((a, b) =>
+          (playerNumbers[a.id] ?? 999).compareTo(playerNumbers[b.id] ?? 999));
 
     final content = SingleChildScrollView(
       controller: horizontalController,
@@ -796,6 +933,7 @@ class _ResultGridTab extends StatelessWidget {
                 playerNumbers[player.id]!,
                 playerNumbers,
                 allRounds,
+                roundPairMaps,
                 playerRanks[player.id] ?? 0,
                 playerMmsByRound[player.id]!,
               ),
@@ -828,6 +966,7 @@ class _ResultGridTab extends StatelessWidget {
     int playerNum,
     Map<String, int> playerNumbers,
     List<PairingResult> allRounds,
+    List<Map<String, MacmahonPair>> roundPairMaps,
     int rank,
     List<double> mmsHistory,
   ) {
@@ -845,6 +984,7 @@ class _ResultGridTab extends StatelessWidget {
             context,
             player,
             allRounds[r],
+            roundPairMaps[r],
             playerNumbers,
             mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null,
           ),
@@ -877,17 +1017,11 @@ class _ResultGridTab extends StatelessWidget {
     BuildContext context,
     MacmahonPlayer player,
     PairingResult roundHistory,
+    Map<String, MacmahonPair> roundPairMap,
     Map<String, int> playerNumbers,
     double? mmsAfterRound,
   ) {
-    MacmahonPair? pair;
-    try {
-      pair = roundHistory.pairs.firstWhere(
-        (p) => p.black.id == player.id || p.white.id == player.id,
-      );
-    } catch (_) {
-      pair = null;
-    }
+    final pair = roundPairMap[player.id];
 
     String marker = '';
     Color color = Colors.black;

@@ -417,6 +417,7 @@ class TournamentDashboardScreen extends ConsumerWidget {
     TournamentFormat selectedFormat = currentData.format;
     int qualifierCount = currentData.qualifierCount;
     int groupCount = currentData.groupCount;
+    int qualifiersPerGroup = currentData.qualifiersPerGroup;
 
     showDialog(
       context: context,
@@ -448,7 +449,9 @@ class TournamentDashboardScreen extends ConsumerWidget {
                     setState(() {
                       selectedFormat = val;
                       // 리그 방식일 경우 기본 조 수를 2개로 제안 (사용자가 인지하도록)
-                      if (groupCount <= 1 && (val == TournamentFormat.league || val == TournamentFormat.leagueAndKnockout)) {
+                      if (groupCount <= 1 &&
+                          (val == TournamentFormat.league ||
+                              val == TournamentFormat.leagueAndKnockout)) {
                         groupCount = 2;
                       }
                     });
@@ -467,15 +470,23 @@ class TournamentDashboardScreen extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<int>(
-                        value: [1, 2, 4, 8].contains(groupCount) ? groupCount : null,
+                        value: [1, 2, 4, 8].contains(groupCount)
+                            ? groupCount
+                            : null,
                         hint: Text('$groupCount개 조'),
                         decoration:
                             const InputDecoration(border: OutlineInputBorder()),
                         items: [1, 2, 4, 8]
-                            .map((n) => DropdownMenuItem(value: n, child: Text('$n개 조')))
+                            .map((n) =>
+                                DropdownMenuItem(value: n, child: Text('$n개 조')))
                             .toList(),
                         onChanged: (val) {
-                          if (val != null) setState(() => groupCount = val);
+                          if (val != null) {
+                            setState(() {
+                              groupCount = val;
+                              qualifierCount = groupCount * qualifiersPerGroup;
+                            });
+                          }
                         },
                       ),
                     ),
@@ -484,8 +495,14 @@ class TournamentDashboardScreen extends ConsumerWidget {
                       height: 56, // Dropdown과 높이 맞춤
                       child: OutlinedButton.icon(
                         onPressed: () async {
-                          final val = await _showCustomGroupInputDialog(context, groupCount);
-                          if (val != null) setState(() => groupCount = val);
+                          final val = await _showCustomGroupInputDialog(
+                              context, groupCount);
+                          if (val != null) {
+                            setState(() {
+                              groupCount = val;
+                              qualifierCount = groupCount * qualifiersPerGroup;
+                            });
+                          }
                         },
                         icon: const Icon(Icons.edit, size: 16),
                         label: const Text('직접 입력'),
@@ -507,6 +524,7 @@ class TournamentDashboardScreen extends ConsumerWidget {
                             format: selectedFormat,
                             qualifierCount: qualifierCount,
                             groupCount: groupCount,
+                            qualifiersPerGroup: qualifiersPerGroup,
                           );
                       Navigator.push(
                         context,
@@ -526,24 +544,36 @@ class TournamentDashboardScreen extends ConsumerWidget {
               if (selectedFormat == TournamentFormat.leagueAndKnockout) ...[
                 const SizedBox(height: 20),
                 const Text(
-                  '본선 진출 인원 (예선 통과자)',
+                  '조별 본선 진출 인원',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
-                  value: qualifierCount,
-                  decoration: const InputDecoration(border: OutlineInputBorder()),
-                  items: [2, 4, 8, 16, 32]
-                      .map((n) => DropdownMenuItem(value: n, child: Text('$n명')))
+                  value: [1, 2, 3, 4].contains(qualifiersPerGroup)
+                      ? qualifiersPerGroup
+                      : 1,
+                  decoration:
+                      const InputDecoration(border: OutlineInputBorder()),
+                  items: [1, 2, 3, 4]
+                      .map((n) => DropdownMenuItem(
+                          value: n, child: Text('조 $n위까지 진출')))
                       .toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => qualifierCount = val);
+                    if (val != null) {
+                      setState(() {
+                        qualifiersPerGroup = val;
+                        qualifierCount = groupCount * val;
+                      });
+                    }
                   },
                 ),
                 const SizedBox(height: 12),
-                const Text(
-                  '※ 예선 종료 후 본선(토너먼트)으로 전환할 때 진출하는 총 인원입니다.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                Text(
+                  '※ 총 본선 진출: $qualifierCount명 ($groupCount개 조 x $qualifiersPerGroup명)',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.bold),
                 ),
               ],
             ],
@@ -555,12 +585,11 @@ class TournamentDashboardScreen extends ConsumerWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                ref
-                    .read(macmahonProvider.notifier)
-                    .updateSectionSettings(
+                ref.read(macmahonProvider.notifier).updateSectionSettings(
                       format: selectedFormat,
                       qualifierCount: qualifierCount,
                       groupCount: groupCount,
+                      qualifiersPerGroup: qualifiersPerGroup,
                     );
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(
