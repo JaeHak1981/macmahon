@@ -140,7 +140,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                   const SizedBox(width: 8),
                   Text(
                     '${state.currentPairs.length}경기 확정'
-                    '${state.byePlayer != null ? " · 부전승: ${state.byePlayer!.name}" : ""}',
+                    '${state.currentPairing!.byePlayers.isNotEmpty ? " · 부전승: ${state.currentPairing!.byePlayers.length}명" : ""}',
                     style: const TextStyle(
                         color: AppTheme.primary,
                         fontWeight: FontWeight.bold),
@@ -160,7 +160,7 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: state.currentPairs.length +
-                    (state.byePlayer != null ? 1 : 0),
+                    state.currentPairing!.byePlayers.length,
                 itemBuilder: (context, index) {
                   if (index < state.currentPairs.length) {
                     final pair = state.currentPairs[index];
@@ -176,7 +176,8 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                       },
                     );
                   }
-                  return _ByeCard(playerName: state.byePlayer!.name);
+                  final byePlayer = state.currentPairing!.byePlayers[index - state.currentPairs.length];
+                  return _ByeCard(playerName: byePlayer.name);
                 },
               ),
             ),

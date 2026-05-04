@@ -14,24 +14,16 @@ class MacmahonUtils {
   static int calculateRecommendedRounds(int playerCount, {int? topBarCount}) {
     if (playerCount <= 1) return 0;
     
-    // 기준이 되는 인원 (Top Bar가 있으면 Top Bar 기준, 없으면 전체 인원 기준)
-    final int targetN = topBarCount ?? playerCount;
-    
-    // log2(N) 계산
-    int rounds = (math.log(targetN) / math.log(2)).ceil();
-    
-    // 최소 라운드 보정
-    // - 2~3명: 1~2라운드
-    // - 4~8명: 최소 3라운드 (변수 고려)
-    // - 그 이상: 계산값 유지
-    if (targetN >= 4 && rounds < 3) {
-      rounds = 3;
-    }
+    // 1. 전체 인원 기준 최소 라운드 (log2 N)
+    int roundsByTotal = (math.log(playerCount) / math.log(2)).ceil();
+    if (playerCount >= 4 && roundsByTotal < 3) roundsByTotal = 3;
 
-    // 인원 대비 최대 라운드 제한 (너무 많은 라운드는 체력적/시간적 문제 발생)
-    // 일반적으로 대규모 대회도 5~7라운드 내외로 진행됨
-    if (rounds > 10) rounds = 10;
+    if (topBarCount == null) return roundsByTotal;
+
+    // 2. Top Bar 기준 라운드 (Top Bar 내에서 우승자를 가리기 위한 최소 라운드)
+    int roundsByTopBar = (math.log(topBarCount) / math.log(2)).ceil();
     
-    return rounds;
+    // 3. 두 기준 중 더 긴 라운드를 선택하여 전체 대회의 질을 보장
+    return math.max(roundsByTotal, roundsByTopBar);
   }
 }

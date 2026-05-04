@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:path/path.dart' as p;
 import '../models/macmahon_player.dart';
 import '../models/macmahon_pair.dart';
 
@@ -139,6 +142,77 @@ class ExportService {
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
       }
 
+      // ── 리그 매트릭스 시트 추가 ──────────────────────────────────
+      final matrixSheetName = 'League_Matrices';
+      final matrixSheet = excel[matrixSheetName];
+      
+      // 그룹별로 선수 분리
+      final Map<String, List<MacmahonPlayer>> groups = {};
+      for (var p in players) {
+        final gid = p.groupId ?? 'Default';
+        groups.putIfAbsent(gid, () => []).add(p);
+      }
+
+      int matrixRowOffset = 0;
+      for (var entry in groups.entries) {
+        final groupId = entry.key;
+        final groupPlayers = entry.value;
+
+        // 그룹 제목
+        matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: matrixRowOffset)).value = 
+            TextCellValue('Group: $groupId');
+        matrixRowOffset += 1;
+
+        // 헤더 (가로축 이름)
+        for (int i = 0; i < groupPlayers.length; i++) {
+          matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: i + 1, rowIndex: matrixRowOffset)).value = 
+              TextCellValue(groupPlayers[i].name);
+        }
+        matrixRowOffset += 1;
+
+        // 데이터 (세로축 이름 + 결과)
+        for (int i = 0; i < groupPlayers.length; i++) {
+          final p1 = groupPlayers[i];
+          // 세로축 이름
+          matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: matrixRowOffset)).value = 
+              TextCellValue(p1.name);
+
+          for (int j = 0; j < groupPlayers.length; j++) {
+            if (i == j) {
+              matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: j + 1, rowIndex: matrixRowOffset)).value = 
+                  TextCellValue('-');
+              continue;
+            }
+
+            final p2 = groupPlayers[j];
+            String resultText = '.';
+
+            // 대전 기록 찾기
+            for (var round in history) {
+              final pair = round.pairs.cast<MacmahonPair?>().firstWhere(
+                (p) => p != null && ((p.black.id == p1.id && p.white.id == p2.id) || (p.black.id == p2.id && p.white.id == p1.id)),
+                orElse: () => null,
+              );
+
+              if (pair != null && pair.isResultEntered) {
+                if (pair.winnerId == null) {
+                  resultText = 'D';
+                } else if (pair.winnerId == p1.id) {
+                  resultText = 'W';
+                } else {
+                  resultText = 'L';
+                }
+                break;
+              }
+            }
+            matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: j + 1, rowIndex: matrixRowOffset)).value = 
+                TextCellValue(resultText);
+          }
+          matrixRowOffset += 1;
+        }
+        matrixRowOffset += 2; // 그룹 간 간격
+      }
+
       // ── 파일 저장 ──────────────────────────────────────────
       final fileName = '${tournamentName.replaceAll(' ', '_')}_results.xlsx';
       
@@ -166,6 +240,69 @@ class ExportService {
       return null;
     } catch (e) {
       rethrow;
+    }
+  }
+
+  /// 현재 화면을 이미지(PNG)로 캡처하여 저장합니다.
+  static Future<String?> exportToImage(
+    ScreenshotController controller,
+    String tournamentName,
+  ) async {
+    try {
+      final imageBytes = await controller.capture();
+      if (imageBytes == null) return null;
+
+      final fileName = '${tournamentName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.png';
+      
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: '이미지 저장',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['png'],
+      );
+
+      if (outputFile == null) return null;
+      if (!outputFile.toLowerCase().endsWith('.png')) {
+        outputFile = '$outputFile.png';
+      }
+
+      final file = File(outputFile);
+      await file.writeAsBytes(imageBytes);
+      return outputFile;
+    } catch (e) {
+      print('Image export error: $e');
+      return null;
+    }
+  }
+
+  /// 이미지 바이트 데이터를 파일로 저장합니다.
+  static Future<String?> saveImageBytes(
+    Uint8List? imageBytes,
+    String tournamentName,
+  ) async {
+    try {
+      if (imageBytes == null) return null;
+
+      final fileName = '${tournamentName.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.png';
+      
+      String? outputFile = await FilePicker.platform.saveFile(
+        dialogTitle: '이미지 저장',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['png'],
+      );
+
+      if (outputFile == null) return null;
+      if (!outputFile.toLowerCase().endsWith('.png')) {
+        outputFile = '$outputFile.png';
+      }
+
+      final file = File(outputFile);
+      await file.writeAsBytes(imageBytes);
+      return outputFile;
+    } catch (e) {
+      print('Image save error: $e');
+      return null;
     }
   }
 

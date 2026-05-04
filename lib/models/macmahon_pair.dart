@@ -74,24 +74,26 @@ class MacmahonPair {
 
 class PairingResult {
   final List<MacmahonPair> pairs; // 확정된 대진 목록
-  final MacmahonPlayer? byePlayer; // 부전승 선수 (홀수일 경우)
+  final List<MacmahonPlayer> byePlayers; // 부전승 선수 목록
   final int round; // 라운드 번호
 
   const PairingResult({
     required this.pairs,
     required this.round,
-    this.byePlayer,
+    this.byePlayers = const [],
   });
+
+  MacmahonPlayer? get byePlayer => byePlayers.isNotEmpty ? byePlayers.first : null;
 
   PairingResult copyWith({
     List<MacmahonPair>? pairs,
-    MacmahonPlayer? byePlayer,
+    List<MacmahonPlayer>? byePlayers,
     int? round,
   }) {
     return PairingResult(
       pairs: pairs ?? this.pairs,
       round: round ?? this.round,
-      byePlayer: byePlayer ?? this.byePlayer,
+      byePlayers: byePlayers ?? this.byePlayers,
     );
   }
 
@@ -101,16 +103,25 @@ class PairingResult {
   Map<String, dynamic> toJson() => {
         'round': round,
         'byePlayerId': byePlayer?.id,
+        'byePlayerIds': byePlayers.map((p) => p.id).toList(),
         'pairs': pairs.map((p) => p.toJson()).toList(),
       };
 
   static PairingResult fromJson(
       Map<String, dynamic> json, List<MacmahonPlayer> players) {
+    final byePlayerId = json['byePlayerId'];
+    final byePlayerIds = json['byePlayerIds'] as List?;
+    
+    List<MacmahonPlayer> byes = [];
+    if (byePlayerIds != null) {
+      byes = byePlayerIds.map((id) => players.firstWhere((p) => p.id == id)).toList();
+    } else if (byePlayerId != null) {
+      byes = [players.firstWhere((p) => p.id == byePlayerId)];
+    }
+
     return PairingResult(
       round: (json['round'] as num?)?.toInt() ?? 1,
-      byePlayer: json['byePlayerId'] == null
-          ? null
-          : players.firstWhere((p) => p.id == json['byePlayerId']),
+      byePlayers: byes,
       pairs: (json['pairs'] as List)
           .map((p) => MacmahonPair.fromJson(p, players))
           .toList(),

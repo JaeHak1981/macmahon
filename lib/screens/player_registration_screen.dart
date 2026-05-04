@@ -208,6 +208,7 @@ class _PlayerRegistrationScreenState
   void _editPlayer(BuildContext context, MacmahonPlayer player, MacmahonNotifier notifier) {
     final nameController = TextEditingController(text: player.name);
     final mmsController = TextEditingController(text: player.initialMms.toString());
+    String? selectedGroup = player.groupId;
     bool isTopBar = player.isTopBar;
     String selectedSection = player.section;
 
@@ -237,6 +238,18 @@ class _PlayerRegistrationScreenState
                   items: ref.read(macmahonProvider).sections.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                   onChanged: (val) => setDialogState(() => selectedSection = val!),
                 ),
+                if (ref.read(macmahonProvider).availableGroups.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    value: selectedGroup,
+                    decoration: const InputDecoration(labelText: '조 선택 (그룹)', border: OutlineInputBorder()),
+                    items: [
+                      const DropdownMenuItem<String?>(value: null, child: Text('미지정')),
+                      ...ref.read(macmahonProvider).availableGroups.map((g) => DropdownMenuItem<String?>(value: g, child: Text('$g조'))),
+                    ],
+                    onChanged: (val) => setDialogState(() => selectedGroup = val),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -256,7 +269,7 @@ class _PlayerRegistrationScreenState
                   name: nameController.text.trim(),
                   section: selectedSection,
                   initialMms: double.tryParse(mmsController.text) ?? player.initialMms,
-                  currentMms: player.currentMms, // 진행 중이라면 유지하되, 필요시 수정 로직 추가 가능
+                  currentMms: player.currentMms,
                   isTopBar: isTopBar,
                   floatHistory: player.floatHistory,
                   opponents: player.opponents,
@@ -267,6 +280,7 @@ class _PlayerRegistrationScreenState
                   sos: player.sos,
                   sodos: player.sodos,
                   cumulativeScore: player.cumulativeScore,
+                  groupId: selectedGroup,
                 );
                 notifier.updatePlayer(updatedPlayer);
                 Navigator.pop(context);
@@ -348,6 +362,7 @@ class _PlayerRegistrationScreenState
       ),
     );
   }
+
 }
 
 class _PlayerTile extends StatelessWidget {

@@ -101,7 +101,7 @@ class PairingService {
     return PairingResult(
       pairs: pairs,
       round: round,
-      byePlayer: byePlayer,
+      byePlayers: byePlayer != null ? [byePlayer] : [],
     );
   }
 
@@ -150,7 +150,11 @@ class PairingService {
       }
     }
 
-    return PairingResult(pairs: pairs, round: round, byePlayer: byePlayer);
+    return PairingResult(
+      pairs: pairs,
+      round: round,
+      byePlayers: byePlayer != null ? [byePlayer] : [],
+    );
   }
 
   /// 토너먼트 대진 생성 (싱글 일리미네이션)
@@ -179,10 +183,47 @@ class PairingService {
       byePlayer = sorted[sorted.length ~/ 2];
     }
 
-    return PairingResult(pairs: pairs, round: round, byePlayer: byePlayer);
+    return PairingResult(
+      pairs: pairs,
+      round: round,
+      byePlayers: byePlayer != null ? [byePlayer] : [],
+    );
   }
 
-  /// 조별 리그 대진 생성 (그룹별로 각각 서클 알고리즘 적용)
+  /// 풀리그의 모든 대진을 한 번에 생성합니다.
+  PairingResult generateAllLeagueMatches({
+    required List<MacmahonPlayer> players,
+  }) {
+    if (players.isEmpty) return PairingResult(pairs: [], round: 1);
+
+    final List<MacmahonPlayer> workingList = List.from(players);
+    // 선수 수가 홀수면 더미 추가 (서클 알고리즘용)
+    if (workingList.length % 2 != 0) {
+      workingList.add(MacmahonPlayer(
+          id: _kDummyId, name: 'BYE', initialMms: 0, currentMms: 0));
+    }
+
+    final int n = workingList.length;
+    final int roundsCount = n - 1;
+    final List<MacmahonPair> allPairs = [];
+    final Set<MacmahonPlayer> allByePlayers = {};
+
+    for (int r = 1; r <= roundsCount; r++) {
+      final res = generateLeaguePairing(players: workingList, round: r);
+      allPairs.addAll(res.pairs);
+      if (res.byePlayer != null) {
+        allByePlayers.add(res.byePlayer!);
+      }
+    }
+
+    return PairingResult(
+      pairs: allPairs,
+      round: 1, // 통합 라운드로 취급
+      byePlayers: allByePlayers.toList(),
+    );
+  }
+
+  /// 조별 리그 대진 생성 (그룹별로 각각 모든 대진 생성)
   PairingResult generateGroupLeaguePairing({
     required List<MacmahonPlayer> players,
     required int round,
@@ -194,20 +235,19 @@ class PairingService {
     }
 
     final List<MacmahonPair> allPairs = [];
-    final List<MacmahonPlayer> byePlayers = [];
+    final List<MacmahonPlayer> allByePlayers = [];
 
     groups.forEach((gId, groupPlayers) {
-      final res = generateLeaguePairing(players: groupPlayers, round: round);
+      // 모든 라운드 대진을 가져옴
+      final res = generateAllLeagueMatches(players: groupPlayers);
       allPairs.addAll(res.pairs);
-      if (res.byePlayer != null) {
-        byePlayers.add(res.byePlayer!);
-      }
+      allByePlayers.addAll(res.byePlayers);
     });
 
     return PairingResult(
       pairs: allPairs,
-      round: round,
-      byePlayer: byePlayers.isNotEmpty ? byePlayers.first : null,
+      round: 1,
+      byePlayers: allByePlayers,
     );
   }
 

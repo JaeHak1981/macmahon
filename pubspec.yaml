@@ -41,6 +41,8 @@ dependencies:
   excel: ^4.0.6
   path_provider: ^2.1.5
   file_picker: ^10.3.10
+  screenshot: ^3.0.0
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
