@@ -1429,6 +1429,8 @@ class _LeagueMatrixTab extends ConsumerWidget {
       return const Center(child: Text('선수가 없습니다.'));
     }
 
+    final players = state.currentSectionPlayers;
+
     // 조별로 분류
     final Map<String, List<MacmahonPlayer>> groups = {};
     for (final p in sorted) {
@@ -1544,14 +1546,52 @@ class _LeagueMatrixTab extends ConsumerWidget {
               width: double.infinity,
               height: 56,
               child: ElevatedButton.icon(
-                onPressed: state.currentPairs.every((p) => p.isResultEntered)
-                    ? () {
-                        ref.read(macmahonProvider.notifier).advanceRound();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('라운드가 종료되었습니다.')),
-                        );
+                onPressed: (() {
+                  final sectionPlayers = players;
+                  final playerGroupMap = {for (var p in sectionPlayers) p.id: p.groupId ?? ""};
+                  
+                  final Map<String, bool> pairEnteredStatus = {};
+                  
+                  // 1. 현재 대진표 기준 초기화
+                  for (final p in state.currentPairs) {
+                    final bId = p.black.id;
+                    final wId = p.white.id;
+                    if (playerGroupMap.containsKey(bId) && 
+                        playerGroupMap.containsKey(wId) &&
+                        playerGroupMap[bId] == playerGroupMap[wId]) {
+                      final ids = [bId, wId]..sort();
+                      pairEnteredStatus[ids.join('|')] = p.isResultEntered;
+                    }
+                  }
+                  
+                  // 2. 과거 기록(history) 우선순위 적용 (매트릭스 렌더링과 동일한 로직)
+                  for (final round in state.history) {
+                    for (final p in round.pairs) {
+                      final bId = p.black.id;
+                      final wId = p.white.id;
+                      if (playerGroupMap.containsKey(bId) && 
+                          playerGroupMap.containsKey(wId) &&
+                          playerGroupMap[bId] == playerGroupMap[wId]) {
+                        final ids = [bId, wId]..sort();
+                        final key = ids.join('|');
+                        // 현재 대상인 대진이면서 과거에 이미 완료된 상태라면 덮어씀
+                        if (pairEnteredStatus.containsKey(key) && p.isResultEntered) {
+                          pairEnteredStatus[key] = true;
+                        }
                       }
-                    : null,
+                    }
+                  }
+                  
+                  if (pairEnteredStatus.isEmpty) return null;
+                  return pairEnteredStatus.values.every((entered) => entered)
+                      ? () {
+                          ref.read(macmahonProvider.notifier).advanceRound();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('라운드가 종료되었습니다.')),
+                          );
+                        }
+                      : null;
+                })(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: Colors.white,
@@ -1562,9 +1602,42 @@ class _LeagueMatrixTab extends ConsumerWidget {
                 ),
                 icon: const Icon(Icons.check_circle_outline),
                 label: (() {
-                  final total = state.currentPairs.length;
-                  final done = state.currentPairs.where((p) => p.isResultEntered).length;
+                  final sectionPlayers = players;
+                  final playerGroupMap = {for (var p in sectionPlayers) p.id: p.groupId ?? ""};
+                  
+                  final Map<String, bool> pairEnteredStatus = {};
+                  
+                  for (final p in state.currentPairs) {
+                    final bId = p.black.id;
+                    final wId = p.white.id;
+                    if (playerGroupMap.containsKey(bId) && 
+                        playerGroupMap.containsKey(wId) &&
+                        playerGroupMap[bId] == playerGroupMap[wId]) {
+                      final ids = [bId, wId]..sort();
+                      pairEnteredStatus[ids.join('|')] = p.isResultEntered;
+                    }
+                  }
+                  
+                  for (final round in state.history) {
+                    for (final p in round.pairs) {
+                      final bId = p.black.id;
+                      final wId = p.white.id;
+                      if (playerGroupMap.containsKey(bId) && 
+                          playerGroupMap.containsKey(wId) &&
+                          playerGroupMap[bId] == playerGroupMap[wId]) {
+                        final ids = [bId, wId]..sort();
+                        final key = ids.join('|');
+                        if (pairEnteredStatus.containsKey(key) && p.isResultEntered) {
+                          pairEnteredStatus[key] = true;
+                        }
+                      }
+                    }
+                  }
+                  
+                  final total = pairEnteredStatus.length;
+                  final done = pairEnteredStatus.values.where((entered) => entered).length;
                   final remaining = total - done;
+                  
                   if (remaining == 0) {
                     return Text(
                       '결과 확정 / 다음 단계로 진행',

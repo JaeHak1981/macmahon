@@ -105,8 +105,8 @@ class SectionData {
       stage: (json['stage'] as num?)?.toInt() ?? 1,
       qualifierCount: (json['qualifierCount'] as num?)?.toInt() ?? 4,
       groupCount: (json['groupCount'] as num?)?.toInt() ?? 1,
-      knockoutQualifiers: List<String>.from(json['knockoutQualifiers'] ?? []),
-      useHeadToHead: json['useHeadToHead'] as bool? ?? true,
+      knockoutQualifiers: (json['knockoutQualifiers'] is List) ? List<String>.from(json['knockoutQualifiers']) : const [],
+      useHeadToHead: (json['useHeadToHead'] is bool) ? json['useHeadToHead'] as bool : true,
     );
   }
 }
@@ -127,7 +127,7 @@ class MacmahonState {
   const MacmahonState({
     required this.id,
     this.players = const [],
-    this.sectionData = const {'일반부': SectionData()},
+    this.sectionData = const {'일반부': const SectionData()},
     this.selectedSection = '일반부',
     this.tournamentName = '',
     this.tournamentDate = '',

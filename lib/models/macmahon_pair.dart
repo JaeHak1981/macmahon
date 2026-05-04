@@ -133,7 +133,7 @@ class PairingResult {
     return PairingResult(
       round: (json['round'] as num?)?.toInt() ?? 1,
       byePlayers: byes,
-      pairs: (json['pairs'] as List)
+      pairs: (json['pairs'] as List? ?? [])
           .map((p) => MacmahonPair.fromJson(p, players))
           .toList(),
     );
