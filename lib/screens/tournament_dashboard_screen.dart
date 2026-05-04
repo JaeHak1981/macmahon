@@ -171,30 +171,31 @@ class TournamentDashboardScreen extends ConsumerWidget {
                                     )
                                   : null,
                             ),
-                            _GridMenuButton(
-                              icon: Icons.grid_on,
-                              label: (state.format == TournamentFormat.league ||
-                                      state.format ==
-                                          TournamentFormat.leagueAndKnockout)
-                                  ? '리그표'
-                                  : '결과표',
-                              subtitle: (state.format == TournamentFormat.league ||
-                                      state.format ==
-                                          TournamentFormat.leagueAndKnockout)
-                                  ? '대진 매트릭스'
-                                  : '공식 기록지',
-                              color: AppTheme.primary,
-                              onTap: state.currentSectionPlayers.isNotEmpty
-                                  ? () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => const StandingsScreen(
-                                          initialIndex: 1,
+                            if (state.format != TournamentFormat.knockout)
+                              _GridMenuButton(
+                                icon: Icons.grid_on,
+                                label: (state.format == TournamentFormat.league ||
+                                        state.format ==
+                                            TournamentFormat.leagueAndKnockout)
+                                    ? '리그표'
+                                    : '결과표',
+                                subtitle: (state.format == TournamentFormat.league ||
+                                        state.format ==
+                                            TournamentFormat.leagueAndKnockout)
+                                    ? '대진 매트릭스'
+                                    : '공식 기록지',
+                                color: AppTheme.primary,
+                                onTap: state.currentSectionPlayers.isNotEmpty
+                                    ? () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const StandingsScreen(
+                                            initialIndex: 1,
+                                          ),
                                         ),
-                                      ),
-                                    )
-                                  : null,
-                            ),
+                                      )
+                                    : null,
+                              ),
                             _GridMenuButton(
                               icon: Icons.history_edu,
                               label: '라운드 기록',
@@ -215,7 +216,8 @@ class TournamentDashboardScreen extends ConsumerWidget {
                               label: '토너먼트 대진표',
                               subtitle: '본선 브라켓',
                               color: Colors.deepPurple,
-                              onTap: state.format == TournamentFormat.knockout
+                              onTap: (state.format == TournamentFormat.knockout || 
+                                     (state.format == TournamentFormat.leagueAndKnockout && state.stage == 2))
                                   ? () => Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -874,6 +876,7 @@ class _CallToActionCard extends ConsumerWidget {
 
     final format = state.currentSectionData.format;
     final isLeague = (format == TournamentFormat.league || format == TournamentFormat.leagueAndKnockout) && state.stage == 1;
+    final isKnockout = format == TournamentFormat.knockout || (format == TournamentFormat.leagueAndKnockout && state.stage == 2);
 
     if (state.currentPairing == null) {
       return _buildCta(
@@ -881,7 +884,7 @@ class _CallToActionCard extends ConsumerWidget {
         icon: Icons.play_circle_fill,
         title:
             '${state.selectedSection}: 선수 $playersCount명 등록 완료. (권장: ${recommended}라운드)',
-        buttonText: isLeague ? '리그전 시작 / 결과 입력' : '${state.currentRound}라운드 페어링 생성',
+        buttonText: isKnockout ? '토너먼트 대진표 진행' : (isLeague ? '리그전 시작 / 결과 입력' : '${state.currentRound}라운드 페어링 생성'),
         onTap: () async {
           if (isLeague) {
             if (state.currentPairing == null) {
@@ -891,10 +894,15 @@ class _CallToActionCard extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const StandingsScreen(initialIndex: 2),
+                  builder: (_) => const StandingsScreen(initialIndex: 1),
                 ),
               );
             }
+          } else if (isKnockout) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StandingsScreen(initialIndex: 1)),
+            );
           } else {
             Navigator.push(
               context,
@@ -910,12 +918,12 @@ class _CallToActionCard extends ConsumerWidget {
       icon: Icons.sports_score,
       title:
           '${state.selectedSection}: 현재 ${state.currentRound}라운드가 진행 중입니다. (권장: ${recommended}라운드)',
-      buttonText: isLeague ? '리그표 확인 / 결과 입력' : '결과 입력 / 페어링 보기',
+      buttonText: isKnockout ? '토너먼트 대진표 확인' : (isLeague ? '리그표 확인 / 결과 입력' : '결과 입력 / 페어링 보기'),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => isLeague
-              ? const StandingsScreen(initialIndex: 2)
+          builder: (_) => (isLeague || isKnockout)
+              ? const StandingsScreen(initialIndex: 1)
               : const PairingScreen(),
         ),
       ),

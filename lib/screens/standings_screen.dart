@@ -8,6 +8,8 @@ import '../providers/macmahon_provider.dart';
 import '../services/export_service.dart';
 import '../utils/macmahon_utils.dart';
 import 'package:flutter/services.dart';
+import 'knockout_selection_screen.dart';
+import 'bracket_screen.dart';
 
 class StandingsScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -27,7 +29,6 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
   void dispose() {
     _verticalController.dispose();
     _horizontalController.dispose();
-    _tabController?.dispose();
     super.dispose();
   }
 
@@ -50,6 +51,10 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
         (state.format == TournamentFormat.leagueAndKnockout &&
             state.stage == 1);
 
+    final showBracketTab = state.format == TournamentFormat.knockout ||
+        (state.format == TournamentFormat.leagueAndKnockout && state.stage == 2);
+    final tabsCount = 2; // 순위표 + (결과표 or 대진표)
+
     final appBar = AppBar(
       title: Text(
         state.tournamentName.isNotEmpty
@@ -59,9 +64,13 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
       bottom: isLeagueStage
           ? null
           : TabBar(
+              isScrollable: true,
               tabs: [
                 const Tab(text: '순위표', icon: Icon(Icons.format_list_numbered)),
-                const Tab(text: '결과표 (Grid)', icon: Icon(Icons.grid_on)),
+                if (!showBracketTab)
+                  const Tab(text: '결과표 (Grid)', icon: Icon(Icons.grid_on)),
+                if (showBracketTab)
+                  const Tab(text: '대진표 (Bracket)', icon: Icon(Icons.account_tree_outlined)),
               ],
               indicatorColor: AppTheme.primary,
               labelColor: AppTheme.primary,
@@ -216,16 +225,19 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                       onResultTap: (p1, p2, pair) =>
                           _showResultInput(context, ref, p1, p2, pair),
                     ),
-                    _ResultGridTab(
-                      state: state,
-                      sorted: sorted,
-                      playerNumbers: playerNumbers,
-                      playerRanks: playerRanks,
-                      verticalController: _verticalController,
-                      horizontalController: _horizontalController,
-                      onResultTap: (p1, p2, pair) =>
-                          _showResultInput(context, ref, p1, p2, pair),
-                    ),
+                    if (!showBracketTab)
+                      _ResultGridTab(
+                        state: state,
+                        sorted: sorted,
+                        playerNumbers: playerNumbers,
+                        playerRanks: playerRanks,
+                        verticalController: _verticalController,
+                        horizontalController: _horizontalController,
+                        onResultTap: (p1, p2, pair) =>
+                            _showResultInput(context, ref, p1, p2, pair),
+                      ),
+                    if (showBracketTab)
+                      const BracketScreen(),
                   ],
                 ),
             ),
@@ -236,8 +248,8 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
 
     if (!isLeagueStage && _tabController == null) {
       return DefaultTabController(
-        initialIndex: widget.initialIndex.clamp(0, 1),
-        length: 2,
+        initialIndex: widget.initialIndex.clamp(0, tabsCount - 1),
+        length: tabsCount,
         child: Builder(builder: (context) {
           _tabController = DefaultTabController.of(context);
           return Scaffold(
@@ -738,6 +750,10 @@ class _ResultGridTab extends StatelessWidget {
     final roundsCount = allRounds.length;
     const headerGreen = Color(0xFFDCEDC8);
 
+    // 순번(playerNum) 기준으로 정렬
+    final gridPlayers = List<MacmahonPlayer>.from(sorted)
+      ..sort((a, b) => (playerNumbers[a.id] ?? 999).compareTo(playerNumbers[b.id] ?? 999));
+
     final content = SingleChildScrollView(
       controller: horizontalController,
       scrollDirection: Axis.horizontal,
@@ -773,7 +789,7 @@ class _ResultGridTab extends StatelessWidget {
                 _GridMainHeaderCell('순위'),
               ],
             ),
-            for (final player in sorted)
+            for (final player in gridPlayers)
               _buildDataRow(
                 context,
                 player,
@@ -1586,9 +1602,18 @@ class _LeagueMatrixTab extends ConsumerWidget {
                   return pairEnteredStatus.values.every((entered) => entered)
                       ? () {
                           ref.read(macmahonProvider.notifier).advanceRound();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('라운드가 종료되었습니다.')),
-                          );
+                          
+                          // 리그+토너먼트에서 예선 종료 시 바로 본선 선발 화면으로 이동
+                          if (state.format == TournamentFormat.leagueAndKnockout && state.stage == 1) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const KnockoutSelectionScreen()),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('라운드가 종료되었습니다.')),
+                            );
+                          }
                         }
                       : null;
                 })(),

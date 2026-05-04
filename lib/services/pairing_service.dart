@@ -168,19 +168,25 @@ class PairingService {
     final List<MacmahonPlayer> sorted = List.from(players);
     sorted.sort((a, b) => b.currentMms.compareTo(a.currentMms));
 
-    final List<MacmahonPair> pairs = [];
+    int n = sorted.length;
     MacmahonPlayer? byePlayer;
 
-    // 1R: 시드 배정 (1위 vs 최하위, 2위 vs 차하위...)
-    // 2R 이상: 승자들끼리 순서대로 매칭
-    for (int i = 0; i < sorted.length / 2; i++) {
-      final p1 = sorted[i];
-      final p2 = sorted[sorted.length - 1 - i];
-      pairs.add(MacmahonPair(black: p1, white: p2, cost: 0));
+    if (n % 2 != 0) {
+      byePlayer = sorted.last; // 가장 후순위 선수를 부전승으로 임시 배정
     }
 
-    if (sorted.length % 2 != 0) {
-      byePlayer = sorted[sorted.length ~/ 2];
+    final List<MacmahonPlayer> remaining = byePlayer != null 
+        ? sorted.sublist(0, n - 1) 
+        : sorted;
+
+    final List<MacmahonPair> pairs = [];
+
+    // 남은 인원끼리 매칭 (1위 vs 최하위)
+    final int matchesCount = remaining.length ~/ 2;
+    for (int i = 0; i < matchesCount; i++) {
+      final p1 = remaining[i];
+      final p2 = remaining[remaining.length - 1 - i];
+      pairs.add(MacmahonPair(black: p1, white: p2, cost: 0));
     }
 
     return PairingResult(

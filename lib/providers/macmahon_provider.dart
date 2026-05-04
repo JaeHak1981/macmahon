@@ -669,11 +669,17 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     if (state.currentPairing == null) return;
     final currentData = state.currentSectionData;
     final updatedHistory = [...currentData.history, currentData.currentPairing!];
+    
+    // 리그전인 경우 라운드 진행 시 완료 상태로 처리 (리그는 1라운드에 모든 대진이 생성되므로)
+    final isFinished = state.format == TournamentFormat.league || 
+                      (state.format == TournamentFormat.leagueAndKnockout && currentData.stage == 1);
+
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
     newSectionData[state.selectedSection] = currentData.copyWith(
       history: updatedHistory,
       currentRound: updatedHistory.length + 1,
       currentPairing: null,
+      isFinished: isFinished,
     );
     state = state.copyWith(sectionData: newSectionData);
     _recomputeStandings();
@@ -882,7 +888,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     state = state.copyWith(players: all);
   }
 
-  void startKnockoutStage(List<String> selectedIds) {
+  Future<void> startKnockoutStage(List<String> selectedIds) async {
     final currentData = state.currentSectionData;
     if (currentData.stage != 1) return;
 
@@ -895,7 +901,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     );
 
     state = state.copyWith(sectionData: newSectionData);
-    saveCurrentTournament();
+    await saveCurrentTournament();
   }
 
   int comparePlayers(MacmahonPlayer a, MacmahonPlayer b, TournamentFormat format) {
