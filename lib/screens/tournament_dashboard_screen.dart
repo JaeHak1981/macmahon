@@ -9,6 +9,7 @@ import 'round_history_screen.dart';
 import 'bracket_screen.dart';
 import '../providers/history_provider.dart';
 import 'group_assignment_screen.dart';
+import 'knockout_selection_screen.dart';
 
 class TournamentDashboardScreen extends ConsumerWidget {
   const TournamentDashboardScreen({super.key});
@@ -922,30 +923,9 @@ class _CallToActionCard extends ConsumerWidget {
   }
 
   void _confirmStartKnockout(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('본선 전환'),
-        content: Text(
-          '현재 순위 상위 ${state.currentSectionData.qualifierCount}명을 선발하여 본선 토너먼트를 시작하시겠습니까?\n\n※ 본선 단계로 전환되면 예선 기록은 별도로 관리되며 새로운 토너먼트 대진이 생성됩니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('취소'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              ref.read(macmahonProvider.notifier).startKnockoutStage();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('본선 토너먼트가 시작되었습니다.')),
-              );
-            },
-            child: const Text('본선 시작'),
-          ),
-        ],
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const KnockoutSelectionScreen()),
     );
   }
 

@@ -6,6 +6,7 @@ import '../models/macmahon_player.dart';
 import '../models/macmahon_pair.dart';
 import '../providers/macmahon_provider.dart';
 import '../services/export_service.dart';
+import '../utils/macmahon_utils.dart';
 import 'package:flutter/services.dart';
 
 class StandingsScreen extends ConsumerStatefulWidget {
@@ -37,7 +38,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
 
     final sorted = <MacmahonPlayer>[];
     final playerRanks = <String, int>{};
-    _computeStandings(players, state.format, sorted, playerRanks);
+    MacmahonUtils.computeStandings(players, state.format, sorted, playerRanks);
 
     final playerNumbers = _getPlayerNumbers(players);
 
@@ -78,6 +79,8 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             state.tournamentName,
             state.history,
             playerNumbers,
+            playerRanks,
+            isLeagueStage,
           ),
         ),
         IconButton(
@@ -474,6 +477,8 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
     String tournamentName,
     List<PairingResult> history,
     Map<String, int> playerNumbers,
+    Map<String, int> playerRanks,
+    bool isLeague,
   ) async {
     try {
       final path = await ExportService.exportToExcel(
@@ -481,6 +486,8 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
         tournamentName.isEmpty ? 'macmahon_tournament' : tournamentName,
         history: history,
         playerNumbers: playerNumbers,
+        playerRanks: playerRanks,
+        isLeague: isLeague,
       );
       if (path != null && context.mounted) {
         ScaffoldMessenger.of(
@@ -1419,22 +1426,34 @@ class _LeagueMatrixTab extends ConsumerWidget {
       return const Center(child: Text('선수가 없습니다.'));
     }
 
+    // 조별로 분류
     final Map<String, List<MacmahonPlayer>> groups = {};
     for (final p in sorted) {
       final gId = p.groupId ?? "전체";
       groups.putIfAbsent(gId, () => []).add(p);
     }
 
+    // 리그 매트릭스 행/열 순서는 선수 번호(등록 순서) 기준으로 '고정'
+    // → 결과 입력/수정 시 순위가 변해도 행/열이 움직이지 않음
+    final Map<String, List<MacmahonPlayer>> stableGroups = {};
+    for (final entry in groups.entries) {
+      final stablePlayers = List<MacmahonPlayer>.from(entry.value)
+        ..sort((a, b) => (playerNumbers[a.id] ?? 0).compareTo(playerNumbers[b.id] ?? 0));
+      stableGroups[entry.key] = stablePlayers;
+    }
+    // 조 이름도 알파벳 순 정렬
+    final sortedGroupKeys = stableGroups.keys.toList()..sort();
+
+
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...groups.entries.map((entry) {
-          final groupName = entry.key;
-          final groupPlayers = entry.value;
+        ...sortedGroupKeys.map((groupName) {
+          final groupPlayers = stableGroups[groupName]!;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (groups.length > 1)
+              if (stableGroups.length > 1)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Text(
@@ -1454,6 +1473,7 @@ class _LeagueMatrixTab extends ConsumerWidget {
             ],
           );
         }),
+
         if (!isExport && state.currentPairing != null && state.currentPairs.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
@@ -1478,13 +1498,21 @@ class _LeagueMatrixTab extends ConsumerWidget {
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.check_circle_outline),
-                label: Text(
-                  state.currentPairs.every((p) => p.isResultEntered)
-                      ? '${state.currentRound}라운드 종료 및 다음 대진 생성'
-                      : '결과 입력 대기 중 (${state.currentPairs.where((p) => p.isResultEntered).length}/${state.currentPairs.length})',
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                label: (() {
+                  final total = state.currentPairs.length;
+                  final done = state.currentPairs.where((p) => p.isResultEntered).length;
+                  final remaining = total - done;
+                  if (remaining == 0) {
+                    return Text(
+                      '결과 확정 / 다음 단계로 진행',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    );
+                  }
+                  return Text(
+                    '결과 입력 대기 ($remaining경기 미입력)',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  );
+                })(),
               ),
             ),
           ),
@@ -1550,15 +1578,16 @@ class _LeagueMatrixTab extends ConsumerWidget {
       );
     }
 
+    MacmahonPair? targetPair;
     String resultText = '';
     Color? textColor;
     bool alreadyPlayed = false;
-
     for (final round in state.history) {
       for (final pair in round.pairs) {
         if ((pair.black.id == p1.id && pair.white.id == p2.id) ||
             (pair.black.id == p2.id && pair.white.id == p1.id)) {
           alreadyPlayed = true;
+          targetPair = pair;
           if (pair.winnerId == p1.id) {
             resultText = 'O';
             textColor = Colors.blue;
@@ -1572,14 +1601,14 @@ class _LeagueMatrixTab extends ConsumerWidget {
           break;
         }
       }
+      if (alreadyPlayed) break;
     }
 
-    MacmahonPair? currentPair;
     if (!alreadyPlayed && state.currentPairing != null) {
       for (final pair in state.currentPairing!.pairs) {
         if ((pair.black.id == p1.id && pair.white.id == p2.id) ||
             (pair.black.id == p2.id && pair.white.id == p1.id)) {
-          currentPair = pair;
+          targetPair = pair;
           if (pair.isResultEntered) {
             if (pair.winnerId == p1.id) {
               resultText = 'O';
@@ -1598,12 +1627,12 @@ class _LeagueMatrixTab extends ConsumerWidget {
     }
 
     return GestureDetector(
-      onTap: currentPair == null
+      onTap: targetPair == null
           ? null
-          : () => onResultTap(p1, p2, currentPair!),
+          : () => onResultTap(p1, p2, targetPair!),
       child: Container(
         height: 70,
-        color: currentPair != null && !currentPair.isResultEntered ? AppTheme.primary.withOpacity(0.05) : null,
+        color: targetPair != null && !targetPair.isResultEntered ? AppTheme.primary.withOpacity(0.05) : null,
         alignment: Alignment.center,
         child: Text(
           resultText.isEmpty ? '-' : resultText,

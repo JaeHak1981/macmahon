@@ -20,33 +20,48 @@ class ExportService {
     String tournamentName, {
     List<PairingResult> history = const [],
     Map<String, int> playerNumbers = const {},
+    Map<String, int> playerRanks = const {},
+    bool isLeague = false,
   }) async {
     try {
       final excel = Excel.createExcel();
-      final sheetName = 'Standings';
-      excel.rename('Sheet1', sheetName);
-      final sheet = excel[sheetName];
+      
+      // 리그전일 경우 대진표(Matrix)를 첫 번째 시트로, 순위표를 두 번째 시트로 구성
+      String primarySheetName = isLeague ? 'League_Matrix' : 'Standings';
+      excel.rename('Sheet1', primarySheetName);
+      final sheet = excel[primarySheetName];
+
+      // 리그전일 때 순위표를 뒤로 보낼 경우 Standings 시트 미리 생성
+      final standingsSheet = isLeague ? excel['Standings'] : sheet;
+      final targetStandingsSheet = standingsSheet; // For clarity in data loop
+
 
       final roundsCount = history.length;
+
+      final centerStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Center,
+        verticalAlign: VerticalAlign.Center,
+      );
 
       // ── 헤더 추가 ──────────────────────────────────────────
       final headers = [
         'Rank',
         'No',
         'Name',
+        if (isLeague) 'Group',
         // 라운드별 헤더 추가
         for (int r = 1; r <= roundsCount; r++) ...['${r}R Opponent', '${r}R Result'],
-        'MMS',
-        'SOS',
+        if (isLeague) 'Wins' else 'MMS',
+        if (!isLeague) 'SOS',
         'SODOS',
-        'Cumulative',
-        'Wins',
+        if (!isLeague) 'Cumulative',
+        if (!isLeague) 'Wins',
         'Losses',
-        'Initial MMS',
+        if (!isLeague) 'Initial MMS',
       ];
       
       for (var i = 0; i < headers.length; i++) {
-        var cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+        var cell = targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
         cell.value = TextCellValue(headers[i]);
       }
 
@@ -54,48 +69,19 @@ class ExportService {
       for (var i = 0; i < players.length; i++) {
         final player = players[i];
         
-        // 순위 계산
-        int displayRank = 1;
-        if (i > 0) {
-          final prev = players[i - 1];
-          bool isSame = player.currentMms == prev.currentMms &&
-              player.cumulativeScore == prev.cumulativeScore &&
-              player.sos == prev.sos &&
-              player.sodos == prev.sodos &&
-              !player.defeatedOpponents.contains(prev.id) &&
-              !prev.defeatedOpponents.contains(player.id) &&
-              player.initialMms == prev.initialMms &&
-              player.wins == prev.wins;
-
-          if (isSame) {
-            for (int j = i; j > 0; j--) {
-              final p1 = players[j];
-              final p2 = players[j - 1];
-              bool same = p1.currentMms == p2.currentMms &&
-                  p1.cumulativeScore == p2.cumulativeScore &&
-                  p1.sos == p2.sos &&
-                  p1.sodos == p2.sodos &&
-                  !p1.defeatedOpponents.contains(p2.id) &&
-                  !p2.defeatedOpponents.contains(p1.id) &&
-                  p1.initialMms == p2.initialMms &&
-                  p1.wins == p2.wins;
-              if (!same) {
-                displayRank = j + 1;
-                break;
-              }
-            }
-          } else {
-            displayRank = i + 1;
-          }
-        }
+        // 제공된 playerRanks 사용 (공동 순위 반영)
+        final displayRank = playerRanks[player.id] ?? (i + 1);
 
         final rowIndex = i + 1;
         int colIndex = 0;
 
         // 기본 정보
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(displayRank);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(playerNumbers[player.id] ?? 0);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(player.name);
+        targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(displayRank);
+        targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(playerNumbers[player.id] ?? 0);
+        targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(player.name);
+        if (isLeague) {
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(player.groupId ?? '-');
+        }
 
         // 라운드별 데이터
         for (int r = 0; r < roundsCount; r++) {
@@ -128,23 +114,35 @@ class ExportService {
             resultStr = 'Win';
           }
 
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(opponentStr);
-          sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(resultStr);
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(opponentStr);
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = TextCellValue(resultStr);
         }
 
         // 집계 정보
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.currentMms);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.sos);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.sodos);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.cumulativeScore);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.wins);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.losses);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
+        if (isLeague) {
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.wins);
+        } else {
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.currentMms);
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.sos);
+        }
+        
+        targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.sodos);
+        
+        if (!isLeague) {
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.cumulativeScore);
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.wins);
+        }
+        
+        targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = IntCellValue(player.losses);
+        
+        if (!isLeague) {
+          targetStandingsSheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex++, rowIndex: rowIndex)).value = DoubleCellValue(player.initialMms);
+        }
       }
 
-      // ── 리그 매트릭스 시트 추가 ──────────────────────────────────
-      final matrixSheetName = 'League_Matrices';
-      final matrixSheet = excel[matrixSheetName];
+      // ── 리그 매트릭스 시트 구성 ──────────────────────────────────
+      // 만약 리그전이면 이미 Sheet1(Primary)이 League_Matrix이므로 그곳에 작성, 아니면 별도 시트 생성
+      final matrixSheet = isLeague ? sheet : excel['League_Matrices'];
       
       // 그룹별로 선수 분리
       final Map<String, List<MacmahonPlayer>> groups = {};
@@ -163,24 +161,37 @@ class ExportService {
             TextCellValue('Group: $groupId');
         matrixRowOffset += 1;
 
-        // 헤더 (가로축 이름)
+        // 헤더 (이름 + 가로축 선수명 + 순위)
+        int headerCol = 0;
+        matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: headerCol++, rowIndex: matrixRowOffset)).value = TextCellValue('이름');
         for (int i = 0; i < groupPlayers.length; i++) {
-          matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: i + 1, rowIndex: matrixRowOffset)).value = 
+          matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: headerCol++, rowIndex: matrixRowOffset)).value = 
               TextCellValue(groupPlayers[i].name);
+        }
+        matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: headerCol, rowIndex: matrixRowOffset)).value = TextCellValue('순위');
+        
+        // 헤더 가운데 정렬
+        for (int c = 0; c <= headerCol; c++) {
+          matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: matrixRowOffset)).cellStyle = centerStyle;
         }
         matrixRowOffset += 1;
 
-        // 데이터 (세로축 이름 + 결과)
+        // 데이터 (이름 + 결과 매트릭스 + 순위)
         for (int i = 0; i < groupPlayers.length; i++) {
           final p1 = groupPlayers[i];
-          // 세로축 이름
-          matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: matrixRowOffset)).value = 
-              TextCellValue(p1.name);
+          final rank = playerRanks[p1.id] ?? 0;
+          int dataCol = 0;
+
+          // 이름
+          var nameCell = matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: dataCol++, rowIndex: matrixRowOffset));
+          nameCell.value = TextCellValue(p1.name);
+          nameCell.cellStyle = centerStyle;
 
           for (int j = 0; j < groupPlayers.length; j++) {
+            var resCell = matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: dataCol++, rowIndex: matrixRowOffset));
             if (i == j) {
-              matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: j + 1, rowIndex: matrixRowOffset)).value = 
-                  TextCellValue('-');
+              resCell.value = TextCellValue('-');
+              resCell.cellStyle = centerStyle;
               continue;
             }
 
@@ -198,23 +209,31 @@ class ExportService {
                 if (pair.winnerId == null) {
                   resultText = 'D';
                 } else if (pair.winnerId == p1.id) {
-                  resultText = 'W';
+                  resultText = 'O';
                 } else {
-                  resultText = 'L';
+                  resultText = 'X';
                 }
                 break;
               }
             }
-            matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: j + 1, rowIndex: matrixRowOffset)).value = 
-                TextCellValue(resultText);
+            var cell = matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: dataCol - 1, rowIndex: matrixRowOffset));
+            cell.value = TextCellValue(resultText);
+            cell.cellStyle = centerStyle;
           }
+          
+          // 마지막 칸에 순위 배치
+          var rankCell = matrixSheet.cell(CellIndex.indexByColumnRow(columnIndex: dataCol, rowIndex: matrixRowOffset));
+          rankCell.value = IntCellValue(rank);
+          rankCell.cellStyle = centerStyle;
+          
           matrixRowOffset += 1;
         }
         matrixRowOffset += 2; // 그룹 간 간격
       }
 
       // ── 파일 저장 ──────────────────────────────────────────
-      final fileName = '${tournamentName.replaceAll(' ', '_')}_results.xlsx';
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = '${tournamentName.replaceAll(' ', '_')}_results_$timestamp.xlsx';
       
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: '엑셀 결과 저장',

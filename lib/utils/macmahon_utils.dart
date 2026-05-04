@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import '../models/macmahon_player.dart';
+import '../providers/macmahon_provider.dart';
 
 /// 맥마흔 시스템 유틸리티
 class MacmahonUtils {
@@ -25,5 +27,103 @@ class MacmahonUtils {
     
     // 3. 두 기준 중 더 긴 라운드를 선택하여 전체 대회의 질을 보장
     return math.max(roundsByTotal, roundsByTopBar);
+  }
+
+  /// 순환 동률(3-way tie 등)을 올바르게 처리하며 공동 순위까지 계산하여 정렬된 선수 목록과 순위 맵을 생성합니다.
+  static void computeStandings(
+    List<MacmahonPlayer> players,
+    TournamentFormat format,
+    List<MacmahonPlayer> outSorted,
+    Map<String, int> outRanks,
+  ) {
+    // 1. 그룹별 분리
+    final groups = <String, List<MacmahonPlayer>>{};
+    for (var p in players) {
+      final gId = p.groupId ?? "";
+      groups.putIfAbsent(gId, () => []).add(p);
+    }
+
+    final isLeague = format == TournamentFormat.league || format == TournamentFormat.leagueAndKnockout;
+    final sortedGroupIds = groups.keys.toList()..sort();
+
+    for (var gId in sortedGroupIds) {
+      final groupPlayers = groups[gId]!;
+
+      // 1차: MMS 기준으로 그룹핑 (동률 판별의 기준점)
+      final mmsGroups = <double, List<MacmahonPlayer>>{};
+      for (var p in groupPlayers) {
+        mmsGroups.putIfAbsent(p.currentMms, () => []).add(p);
+      }
+
+      final sortedMms = mmsGroups.keys.toList()..sort((a, b) => b.compareTo(a));
+      int currentRank = 1;
+
+      for (var mms in sortedMms) {
+        final tiedPlayers = mmsGroups[mms]!;
+
+        // 2차: 동률 그룹 내 승자승(Internal Wins) 계산
+        final internalWins = <String, int>{};
+        for (var p in tiedPlayers) {
+          int wins = 0;
+          for (var opp in tiedPlayers) {
+            if (p.id != opp.id && p.defeatedOpponents.contains(opp.id)) {
+              wins++;
+            }
+          }
+          internalWins[p.id] = wins;
+        }
+
+        // 3차: 다중 조건 정렬 (내부 승수 -> SODOS -> SOS -> 누진점수 -> 초기 서열 -> 총 승수)
+        tiedPlayers.sort((a, b) {
+          final wA = internalWins[a.id]!;
+          final wB = internalWins[b.id]!;
+          if (wA != wB) return wB.compareTo(wA);
+
+          final sodosCmp = b.sodos.compareTo(a.sodos);
+          if (sodosCmp != 0) return sodosCmp;
+
+          if (!isLeague) {
+            final sosCmp = b.sos.compareTo(a.sos);
+            if (sosCmp != 0) return sosCmp;
+
+            final cumCmp = b.cumulativeScore.compareTo(a.cumulativeScore);
+            if (cumCmp != 0) return cumCmp;
+          }
+
+          final initCmp = b.initialMms.compareTo(a.initialMms);
+          if (initCmp != 0) return initCmp;
+
+          return b.wins.compareTo(a.wins);
+        });
+
+        // 4차: 최종 순위 부여 (모든 조건이 동일하면 공동 순위 부여)
+        if (tiedPlayers.isNotEmpty) {
+          int subRank = currentRank;
+          outRanks[tiedPlayers[0].id] = subRank;
+          outSorted.add(tiedPlayers[0]);
+
+          for (int i = 1; i < tiedPlayers.length; i++) {
+            final prev = tiedPlayers[i - 1];
+            final curr = tiedPlayers[i];
+
+            bool isSame = internalWins[curr.id] == internalWins[prev.id] &&
+                curr.sodos == prev.sodos &&
+                curr.initialMms == prev.initialMms &&
+                curr.wins == prev.wins;
+
+            if (!isLeague) {
+              isSame = isSame && curr.sos == prev.sos && curr.cumulativeScore == prev.cumulativeScore;
+            }
+
+            if (!isSame) {
+              subRank = currentRank + i; // 공동 순위일 경우 건너뛰고, 다르면 순위 하락
+            }
+            outRanks[curr.id] = subRank;
+            outSorted.add(curr);
+          }
+        }
+        currentRank += tiedPlayers.length;
+      }
+    }
   }
 }

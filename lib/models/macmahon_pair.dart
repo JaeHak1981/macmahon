@@ -38,6 +38,17 @@ class MacmahonPair {
     );
   }
 
+  /// 결과를 명시적으로 설정 (무승부인 null을 안전하게 할당하기 위함)
+  MacmahonPair setResult(String? winnerId) {
+    return MacmahonPair(
+      black: black,
+      white: white,
+      cost: cost,
+      winnerId: winnerId,
+      isResultEntered: true,
+    );
+  }
+
   /// 두 선수 간의 플로팅 방향 계산
   /// self가 opponent보다 점수가 높으면 → Float Down(-1)
   /// self가 opponent보다 점수가 낮으면 → Float Up(+1)
