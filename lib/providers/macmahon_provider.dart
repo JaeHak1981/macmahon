@@ -21,6 +21,12 @@ enum LeagueType {
   doubleElimination, // 더블 일리미네이션
 }
 
+enum BracketStyle {
+  compact, // 기존: 한 칸에 두 명 표시 (세로형)
+  classic, // 신규: 가로형 트리 (선수 개별 박스)
+  classicVertical, // 신규: 세로형 트리 (선수 개별 박스)
+}
+
 // ─── 부(Section)별 상태 클래스 ──────────────────────────────
 
 class SectionData {
@@ -36,6 +42,7 @@ class SectionData {
   final int qualifiersPerGroup; // 각 조별 본선 진출 인원 (새로 추가)
   final List<String> knockoutQualifiers; // 수동으로 선택된 본선 진출자 ID 목록
   final bool useHeadToHead; // 동률 시 승자승 적용 여부
+  final BracketStyle bracketStyle; // 대진표 스타일 (추가)
 
   const SectionData({
     this.history = const [],
@@ -50,6 +57,7 @@ class SectionData {
     this.qualifiersPerGroup = 1, // 기본값: 조 1위만 진출
     this.knockoutQualifiers = const [],
     this.useHeadToHead = true,
+    this.bracketStyle = BracketStyle.compact,
   });
 
   SectionData copyWith({
@@ -65,6 +73,7 @@ class SectionData {
     int? qualifiersPerGroup,
     List<String>? knockoutQualifiers,
     bool? useHeadToHead,
+    BracketStyle? bracketStyle,
   }) {
     return SectionData(
       history: history ?? this.history,
@@ -81,6 +90,7 @@ class SectionData {
       qualifiersPerGroup: qualifiersPerGroup ?? this.qualifiersPerGroup,
       knockoutQualifiers: knockoutQualifiers ?? this.knockoutQualifiers,
       useHeadToHead: useHeadToHead ?? this.useHeadToHead,
+      bracketStyle: bracketStyle ?? this.bracketStyle,
     );
   }
 
@@ -99,6 +109,7 @@ class SectionData {
         'qualifiersPerGroup': qualifiersPerGroup,
         'knockoutQualifiers': knockoutQualifiers,
         'useHeadToHead': useHeadToHead,
+        'bracketStyle': bracketStyle.index,
       };
 
   factory SectionData.fromJson(
@@ -123,6 +134,9 @@ class SectionData {
           : const [],
       useHeadToHead:
           (json['useHeadToHead'] is bool) ? json['useHeadToHead'] as bool : true,
+      bracketStyle: json['bracketStyle'] != null
+          ? BracketStyle.values[(json['bracketStyle'] as num).toInt()]
+          : BracketStyle.compact,
     );
   }
 }
@@ -372,6 +386,15 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     saveCurrentTournament();
   }
 
+  void updateBracketStyle(BracketStyle style) {
+    final currentSection = state.selectedSection;
+    final currentData = state.currentSectionData;
+    final newSectionData = Map<String, SectionData>.from(state.sectionData);
+    newSectionData[currentSection] = currentData.copyWith(bracketStyle: style);
+    state = state.copyWith(sectionData: newSectionData);
+    saveCurrentTournament();
+  }
+
   void addPlayer(MacmahonPlayer player) {
     state = state.copyWith(players: [...state.players, player]);
   }
@@ -517,21 +540,45 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
   Future<void> generateManualPairing(List<MacmahonPlayer> orderedPlayers) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final currentRound = state.currentRound;
       final currentData = state.currentSectionData;
-
+      
+      // 1. 페어링 생성 (토너먼트 본선은 항상 1라운드부터 시작하도록 강제)
       final result = _pairingService.generateKnockoutPairingManual(
         orderedPlayers: orderedPlayers,
-        round: currentRound,
+        round: 1, 
       );
 
+      // 2. 페어링 결과 반영 (상대 기록 등)
       _pairingService.applyPairingResult(result);
+
+      // 3. 전역 선수 명단 업데이트 (부전승 선수 포함)
+      final List<MacmahonPlayer> updatedAllPlayers = List.from(state.players);
+      for (final p in orderedPlayers) {
+        final idx = updatedAllPlayers.indexWhere((existing) => existing.id == p.id);
+        if (idx != -1) {
+          updatedAllPlayers[idx] = p;
+        } else {
+          updatedAllPlayers.add(p);
+        }
+      }
+
+      // 4. 섹션 데이터 업데이트 (단계 전환 및 라운드 초기화)
       final newSectionData = Map<String, SectionData>.from(state.sectionData);
-      newSectionData[state.selectedSection] =
-          currentData.copyWith(currentPairing: result);
-      state = state.copyWith(sectionData: newSectionData, isLoading: false);
+      newSectionData[state.selectedSection] = currentData.copyWith(
+        currentPairing: result,
+        stage: 2, // 대진을 확정하면 본선(stage 2)으로 확실히 전환
+        currentRound: 1,
+      );
+
+      state = state.copyWith(
+        players: updatedAllPlayers,
+        sectionData: newSectionData, 
+        isLoading: false
+      );
+      
+      await saveCurrentTournament();
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: '수동 페어링 오류: $e');
+      state = state.copyWith(isLoading: false, errorMessage: '대진 확정 오류: $e');
     }
   }
 
@@ -568,7 +615,7 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
       updatedSectionPlayers = _calculateTieBreakers(replayed, state.players);
     }
 
-    // 상태 일괄 업데이트 (Map 사용하여 O(N) 처리)
+    // 상태 일괄 업데이트
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
     newSectionData[state.selectedSection] = currentData.copyWith(
       currentPairing: newCurrentPairing,

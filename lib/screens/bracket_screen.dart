@@ -14,9 +14,12 @@ class BracketScreen extends ConsumerStatefulWidget {
   ConsumerState<BracketScreen> createState() => _BracketScreenState();
 }
 
+enum DraftStyle { table, direct }
+
 class _BracketScreenState extends ConsumerState<BracketScreen> {
   bool _isManualMode = false;
-  List<MacmahonPlayer>? _manualPlayers;
+  DraftStyle _draftStyle = DraftStyle.table;
+  List<MacmahonPlayer?>? _draftPlayers; // 연번별 배정된 선수 목록
 
   @override
   Widget build(BuildContext context) {
@@ -24,45 +27,29 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
     final qualifiers = state.currentSectionData.knockoutQualifiers;
     final currentData = state.currentSectionData;
 
-    // 토너먼트 대국인지 판별 (본선 진출자들끼리의 대국이며, 조별 리그가 아닌 대국)
-    // LeagueAndKnockout 방식에서 Stage 2의 기록만 가져오기 위해
-    // 예선 종료 시점 이후의 히스토리만 고려하거나, 선수 구성을 확인
     bool isKnockoutMatch(PairingResult r) {
-      if (qualifiers.isEmpty) return true; // 전체 토너먼트인 경우
-      // 모든 대진의 선수가 본선 진출자 명단에 있어야 하며, 부전승자도 진출자여야 함
+      if (qualifiers.isEmpty) return true;
       final allKnockoutPlayers = r.pairs.every((p) => 
         qualifiers.contains(p.black.id) && qualifiers.contains(p.white.id));
       final byeKnockout = r.byePlayers.every((b) => qualifiers.contains(b.id));
-      
-      // 추가로, 예선(Stage 1)은 보통 조별 리그이므로 
-      // 본선 단계(Stage 2)의 히스토리인지 확인하는 것이 가장 정확함
-      // 현재 PairingResult에 stage 정보가 없으므로, 선수 구성을 주 기준으로 함
       return allKnockoutPlayers && byeKnockout;
     }
 
-    // 본선 히스토리 추출
     final knockoutHistory = state.history.where(isKnockoutMatch).toList();
     final currentPairing = state.currentPairing;
-    
-    // 현재 페어링이 본선 페어링인지 확인
     final currentIsKnockout = currentData.stage == 2 && currentPairing != null;
 
     final qCount = qualifiers.isNotEmpty
         ? qualifiers.length
         : state.currentSectionPlayers.length;
     
-    // 강수 계산 (8강 -> 3라운드, 16강 -> 4라운드)
     final totalRounds = qCount > 1 ? (math.log(qCount) / math.log(2)).ceil() : 1;
-
-    // 본선용 라운드 배열 ([0]=8강, [1]=4강, [2]=결승)
     final List<PairingResult?> displayRounds = List.filled(totalRounds, null);
     
-    // 히스토리 채우기
     for (int i = 0; i < knockoutHistory.length && i < totalRounds; i++) {
       displayRounds[i] = knockoutHistory[i];
     }
     
-    // 현재 진행 중인 라운드 채우기
     if (currentIsKnockout && knockoutHistory.length < totalRounds) {
       displayRounds[knockoutHistory.length] = currentPairing;
     }
@@ -110,107 +97,174 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
 
     Widget buildEmptyState() {
       if (_isManualMode) {
-        final players = _manualPlayers ?? state.currentSectionPlayers;
-        return Container(
-          width: 350,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4))
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Row(
-                children: [
-                  Icon(Icons.sort, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text('대진 순서 직접 조정',
-                      style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ],
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text('드래그하여 선수들의 위치를 바꾸세요.\n상단부터 2명씩 경기가 생성됩니다.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
-              ),
-              const Divider(),
-              SizedBox(
-                height: 350,
-                child: ReorderableListView.builder(
-                  itemCount: players.length,
-                  onReorder: (oldIndex, newIndex) {
-                    setState(() {
-                      if (newIndex > oldIndex) newIndex -= 1;
-                      final list = List<MacmahonPlayer>.from(players);
-                      final player = list.removeAt(oldIndex);
-                      list.insert(newIndex, player);
-                      _manualPlayers = list;
-                    });
-                  },
-                  itemBuilder: (context, index) {
-                    final p = players[index];
-                    final isEven = (index ~/ 2) % 2 == 0;
-                    return Card(
-                      key: ValueKey(p.id),
-                      elevation: 0,
-                      color: isEven ? Colors.blue.shade50 : Colors.green.shade50,
-                      margin: const EdgeInsets.symmetric(vertical: 2),
-                      child: ListTile(
-                        dense: true,
-                        leading: CircleAvatar(
-                          radius: 12,
-                          backgroundColor: AppTheme.primary,
-                          child: Text('${index + 1}',
-                              style: const TextStyle(
-                                  fontSize: 10, color: Colors.white)),
-                        ),
-                        title: Text(p.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w500)),
-                        trailing: const Icon(Icons.drag_handle, size: 20),
-                      ),
-                    );
-                  },
+        final allPossible = qualifiers.isNotEmpty
+            ? state.currentSectionPlayers.where((p) => qualifiers.contains(p.id)).toList()
+            : state.currentSectionPlayers;
+        
+        _draftPlayers ??= List.filled(qCount, null);
+        final usedIds = _draftPlayers!.where((p) => p != null).map((p) => p!.id).toSet();
+        final available = allPossible.where((p) => !usedIds.contains(p.id)).toList();
+
+        return Column(
+          children: [
+            Row(
+              children: [
+                const Text('대진 추첨 모드', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
+                const Spacer(),
+                SegmentedButton<DraftStyle>(
+                  segments: const [
+                    ButtonSegment(value: DraftStyle.table, label: Text('테이블형'), icon: Icon(Icons.table_rows_rounded)),
+                    ButtonSegment(value: DraftStyle.direct, label: Text('직관형(드래그)'), icon: Icon(Icons.account_tree_rounded)),
+                  ],
+                  selected: {_draftStyle},
+                  onSelectionChanged: (set) => setState(() => _draftStyle = set.first),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _draftPlayers!.any((p) => p != null)
+                      ? () async {
+                          final finalOrder = _draftPlayers!.map<MacmahonPlayer>((p) => p ?? MacmahonPlayer(
+                            id: 'bye_${DateTime.now().millisecondsSinceEpoch}', 
+                            name: '(부전)', 
+                            section: state.selectedSection,
+                            initialMms: 0,
+                            currentMms: 0,
+                          )).toList();
+                          await ref.read(macmahonProvider.notifier).generateManualPairing(finalOrder);
+                          if (mounted) {
+                            setState(() {
+                              _isManualMode = false;
+                              _draftPlayers = null;
+                            });
+                          }
+                        }
+                      : null,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                  child: const Text('대진 확정'),
+                ),
+                const SizedBox(width: 8),
+                TextButton(onPressed: () => setState(() => _isManualMode = false), child: const Text('취소')),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => setState(() {
-                        _isManualMode = false;
-                        _manualPlayers = null;
-                      }),
-                      child: const Text('취소'),
+                  Container(
+                    width: 200,
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+                          child: const Center(child: Text('선수 명단', style: TextStyle(fontWeight: FontWeight.bold))),
+                        ),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: available.length,
+                            itemBuilder: (context, index) {
+                              final p = available[index];
+                              return Draggable<MacmahonPlayer>(
+                                data: p,
+                                feedback: Material(
+                                  elevation: 8,
+                                  borderRadius: BorderRadius.circular(4),
+                                  color: Colors.transparent,
+                                  child: Container(
+                                    width: 100,
+                                    height: 40,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.primary.withOpacity(0.8),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(p.name, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
+                                  ),
+                                ),
+                                childWhenDragging: Opacity(opacity: 0.3, child: ListTile(title: Text(p.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)), dense: true)),
+                                child: ListTile(
+                                  title: Text(p.name, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+                                  dense: true,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () => ref
-                          .read(macmahonProvider.notifier)
-                          .generateManualPairing(players),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primary,
-                        foregroundColor: Colors.white,
+                  const SizedBox(width: 8),
+                  if (_draftStyle == DraftStyle.table) ...[
+                    Container(
+                      width: 300,
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))),
+                            child: const Center(child: Text('추첨 테이블', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ),
+                          const Divider(height: 1),
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: qCount,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final selected = _draftPlayers![index];
+                                return DragTarget<MacmahonPlayer>(
+                                  onAccept: (data) => setState(() {
+                                    for (int i = 0; i < _draftPlayers!.length; i++) {
+                                      if (_draftPlayers![i]?.id == data.id) _draftPlayers![i] = null;
+                                    }
+                                    _draftPlayers![index] = data;
+                                  }),
+                                  builder: (context, candidate, _) => ListTile(
+                                    dense: true,
+                                    leading: Text('${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    title: Text(selected?.name ?? (candidate.isNotEmpty ? '여기에 놓으세요' : '-'), style: TextStyle(color: selected == null ? Colors.grey : Colors.black, fontWeight: selected == null ? FontWeight.normal : FontWeight.bold)),
+                                    trailing: selected != null ? IconButton(icon: const Icon(Icons.close, size: 14), onPressed: () => setState(() => _draftPlayers![index] = null)) : null,
+                                    tileColor: candidate.isNotEmpty ? AppTheme.primary.withOpacity(0.05) : null,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                      child: const Text('확정'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: _DraftPreviewBracket(
+                            draftPlayers: _draftPlayers!,
+                            totalRounds: totalRounds,
+                            style: currentData.bracketStyle == BracketStyle.compact 
+                                ? BracketStyle.classicVertical 
+                                : currentData.bracketStyle,
+                            onPlayerDropped: (index, player) => setState(() {
+                              for (int i = 0; i < _draftPlayers!.length; i++) {
+                                if (_draftPlayers![i]?.id == player.id) _draftPlayers![i] = null;
+                              }
+                              _draftPlayers![index] = player;
+                            }),
+                            onPlayerRemoved: (index) => setState(() => _draftPlayers![index] = null),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         );
       }
 
@@ -218,17 +272,14 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.account_tree_outlined,
-                size: 64, color: Colors.grey),
+            const Icon(Icons.account_tree_outlined, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
-            const Text('본선 대진이 아직 생성되지 않았습니다.',
-                style: TextStyle(color: Colors.grey, fontSize: 16)),
+            const Text('본선 대진이 아직 생성되지 않았습니다.', style: TextStyle(color: Colors.grey, fontSize: 16)),
             const SizedBox(height: 24),
             if (state.errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(state.errorMessage!,
-                    style: const TextStyle(color: Colors.red)),
+                child: Text(state.errorMessage!, style: const TextStyle(color: Colors.red)),
               ),
             if (state.isLoading)
               const CircularProgressIndicator()
@@ -237,21 +288,11 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
                 children: [
                   ElevatedButton.icon(
                     onPressed: () async {
-                      await ref
-                          .read(macmahonProvider.notifier)
-                          .generatePairing();
+                      await ref.read(macmahonProvider.notifier).generatePairing();
                     },
                     icon: const Icon(Icons.auto_awesome),
-                    label: const Text('자동 시드 배정 생성',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
+                    label: const Text('자동 시드 배정 생성', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   ),
                   const SizedBox(height: 16),
                   TextButton.icon(
@@ -268,22 +309,50 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
 
     final body = Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SegmentedButton<BracketStyle>(
+                segments: [
+                  if (!_isManualMode)
+                    const ButtonSegment(value: BracketStyle.compact, label: Text('컴팩트', style: TextStyle(fontSize: 12)), icon: Icon(Icons.grid_view_rounded, size: 16)),
+                  const ButtonSegment(value: BracketStyle.classic, label: Text('클래식(가로)', style: TextStyle(fontSize: 12)), icon: Icon(Icons.account_tree_rounded, size: 16)),
+                  const ButtonSegment(value: BracketStyle.classicVertical, label: Text('클래식(세로)', style: TextStyle(fontSize: 12)), icon: Icon(Icons.vertical_split_rounded, size: 16)),
+                ],
+                selected: {
+                  _isManualMode && currentData.bracketStyle == BracketStyle.compact 
+                      ? BracketStyle.classicVertical 
+                      : currentData.bracketStyle
+                },
+                onSelectionChanged: (Set<BracketStyle> newSelection) {
+                  ref.read(macmahonProvider.notifier).updateBracketStyle(newSelection.first);
+                },
+                style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact, selectedBackgroundColor: AppTheme.primary.withOpacity(0.1), selectedForegroundColor: AppTheme.primary),
+              ),
+            ],
+          ),
+        ),
         Expanded(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              padding: const EdgeInsets.all(32),
-              child: displayRounds.every((r) => r == null)
-                  ? buildEmptyState()
-                  : _BracketTree(
-                      displayRounds: displayRounds,
-                      totalRounds: totalRounds,
-                      currentRoundIdx: currentRoundIdx,
-                      qCount: qCount,
-                      onMatchTap: onMatchTap,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: displayRounds.every((r) => r == null)
+                ? buildEmptyState()
+                : Center(
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: _buildMainBracket(
+                        style: currentData.bracketStyle,
+                        displayRounds: displayRounds,
+                        totalRounds: totalRounds,
+                        currentRoundIdx: currentRoundIdx,
+                        qCount: qCount,
+                        onMatchTap: onMatchTap,
+                      ),
                     ),
-            ),
+                  ),
           ),
         ),
         if (!tournamentDone && currentIsKnockout)
@@ -298,24 +367,15 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
                       ? () async {
                           ref.read(macmahonProvider.notifier).advanceRound();
                           final s = ref.read(macmahonProvider);
-                          final newHist =
-                              s.history.where(isKnockoutMatch).toList();
+                          final newHist = s.history.where(isKnockoutMatch).toList();
                           if (newHist.length < totalRounds) {
                             await ref.read(macmahonProvider.notifier).generatePairing();
                           }
                         }
                       : null,
                   icon: const Icon(Icons.arrow_upward),
-                  label: Text(
-                    currentRoundDone ? '다음 라운드 진행' : '결과를 모두 입력하세요',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primary,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  label: Text(currentRoundDone ? '다음 라운드 진행' : '결과를 모두 입력하세요', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, disabledBackgroundColor: Colors.grey.shade300, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                 ),
               ),
             ),
@@ -326,37 +386,29 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
     );
 
     final hasScaffold = context.findAncestorWidgetOfExactType<Scaffold>() != null;
-    if (hasScaffold) return body;
+    if (hasScaffold) return Center(child: body);
 
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('${state.selectedSection} 토너먼트 대진표'),
+        title: Text('${state.selectedSection} 대진표'),
         elevation: 0,
         actions: [
           IconButton(
-            tooltip: '본선 초기화 (예선으로 돌아가기)',
+            tooltip: '본선 초기화',
             icon: const Icon(Icons.history),
             onPressed: () async {
               final confirmed = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('본선 초기화'),
-                  content: const Text('현재 본선 대진을 삭제하고 예선 결과(진출자 선택) 화면으로 돌아가시겠습니까?'),
+                  content: const Text('현재 본선 대진을 삭제하고 예선 결과 화면으로 돌아가시겠습니까?'),
                   actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('취소'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                      child: const Text('초기화'),
-                    ),
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('초기화')),
                   ],
                 ),
               );
-
               if (confirmed == true) {
                 await ref.read(macmahonProvider.notifier).resetKnockoutStage();
               }
@@ -364,38 +416,63 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
           ),
         ],
       ),
-      body: body,
+      body: Center(child: body),
     );
+  }
+
+  Widget _buildMainBracket({
+    required BracketStyle style,
+    required List<PairingResult?> displayRounds,
+    required int totalRounds,
+    required int currentRoundIdx,
+    required int qCount,
+    required void Function(MacmahonPair) onMatchTap,
+  }) {
+    switch (style) {
+      case BracketStyle.compact:
+        return _CompactBracketTree(
+          displayRounds: displayRounds,
+          totalRounds: totalRounds,
+          currentRoundIdx: currentRoundIdx,
+          qCount: qCount,
+          onMatchTap: onMatchTap,
+        );
+      case BracketStyle.classic:
+        return _ClassicBracketTree(
+          displayRounds: displayRounds,
+          totalRounds: totalRounds,
+          currentRoundIdx: currentRoundIdx,
+          qCount: qCount,
+          onMatchTap: onMatchTap,
+          isVertical: false,
+        );
+      case BracketStyle.classicVertical:
+        return _ClassicBracketTree(
+          displayRounds: displayRounds,
+          totalRounds: totalRounds,
+          currentRoundIdx: currentRoundIdx,
+          qCount: qCount,
+          onMatchTap: onMatchTap,
+          isVertical: true,
+        );
+    }
   }
 }
 
-// ── 브라켓 트리 ────────────────────────────────────────────────────────────
-class _BracketTree extends StatelessWidget {
+// ── 컴팩트 브라켓 트리 ────────────────────────────────────────────────────────
+class _CompactBracketTree extends StatelessWidget {
   final List<PairingResult?> displayRounds;
   final int totalRounds;
   final int currentRoundIdx;
   final int qCount;
   final void Function(MacmahonPair) onMatchTap;
-
-  static const double kW = 168.0;
-  static const double kH = 72.0;
-  static const double kVGap = 80.0;
-  static const double kHGap = 20.0;
-
-  const _BracketTree({
-    required this.displayRounds,
-    required this.totalRounds,
-    required this.currentRoundIdx,
-    required this.qCount,
-    required this.onMatchTap,
-  });
+  static const double kW = 168.0, kH = 72.0, kVGap = 60.0, kHGap = 20.0;
+  const _CompactBracketTree({required this.displayRounds, required this.totalRounds, required this.currentRoundIdx, required this.qCount, required this.onMatchTap});
 
   @override
   Widget build(BuildContext context) {
     final n = totalRounds;
     final leafSlotW = kW + kHGap;
-    
-    // 각 라운드 승자 이름 사전 계산
     final winnerMap = <int, Map<int, String>>{};
     for (int r = 0; r < n; r++) {
       final round = displayRounds[r];
@@ -403,247 +480,194 @@ class _BracketTree extends StatelessWidget {
       winnerMap[r] = {};
       for (int m = 0; m < round.pairs.length; m++) {
         final p = round.pairs[m];
-        if (p.isResultEntered && p.winnerId != null) {
-          winnerMap[r]![m] =
-              p.winnerId == p.black.id ? p.black.name : p.white.name;
-        }
+        if (p.isResultEntered && p.winnerId != null) winnerMap[r]![m] = p.winnerId == p.black.id ? p.black.name : p.white.name;
       }
     }
-
     double cx(int r, int m) {
-      final slots = math.pow(2, r).toInt();
+      final slots = math.pow(2, r).toDouble();
       return (m * slots + slots / 2.0) * leafSlotW;
     }
-
-    double yTop(int r) => 80 + (n - 1 - r) * (kH + kVGap);
-
+    double yTop(int r) => (n - r) * (kH + kVGap) + 80;
     final lines = <_Line>[];
     final cards = <Widget>[];
-
     for (int r = 0; r < n; r++) {
-      final round = displayRounds[r];
-      final y = yTop(r);
-      final expected = math.pow(2, n - 1 - r).toInt();
-      final isCurrent = r == currentRoundIdx;
-
-      // 라운드 이름 헤더 추가
-      final rName = MacmahonUtils.getRoundName(
-        currentRound: r + 1,
-        totalRounds: n,
-        format: TournamentFormat.knockout,
-        playerCount: qCount,
-        stage: 2,
-      );
-
-      cards.add(Positioned(
-        left: 0,
-        right: 0,
-        top: y - 25,
-        child: Center(
-          child: Text(
-            rName,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isCurrent ? AppTheme.primary : Colors.grey,
-            ),
-          ),
-        ),
-      ));
-
+      final round = displayRounds[r], y = yTop(r), expected = math.pow(2, n - 1 - r).toInt(), isCurrent = r == currentRoundIdx;
+      final rName = MacmahonUtils.getRoundName(currentRound: r + 1, totalRounds: n, format: TournamentFormat.knockout, playerCount: qCount, stage: 2);
+      cards.add(Positioned(left: 0, right: 0, top: y - 25, child: Center(child: Text(rName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isCurrent ? AppTheme.primary : Colors.grey)))));
       for (int m = 0; m < expected; m++) {
-        final xc = cx(r, m);
-        final pair = (round != null && m < round.pairs.length) ? round.pairs[m] : null;
-
+        final xc = cx(r, m), pair = (round != null && m < round.pairs.length) ? round.pairs[m] : null;
         String? pA = pair != null ? pair.black.name : (r > 0 && winnerMap.containsKey(r - 1) ? winnerMap[r - 1]![m * 2] : null);
         String? pB = pair != null ? pair.white.name : (r > 0 && winnerMap.containsKey(r - 1) ? winnerMap[r - 1]![m * 2 + 1] : null);
-
         String? winner;
-        if (pair != null && pair.isResultEntered && pair.winnerId != null) {
-          winner = pair.winnerId == pair.black.id ? pair.black.name : pair.white.name;
-        }
-
+        if (pair != null && pair.isResultEntered && pair.winnerId != null) winner = pair.winnerId == pair.black.id ? pair.black.name : pair.white.name;
         final tappable = isCurrent && pair != null && !pair.isResultEntered;
-
-        cards.add(Positioned(
-          left: xc - kW / 2,
-          top: y,
-          width: kW,
-          height: kH,
-          child: _MatchSlot(
-            playerA: pA,
-            playerB: pB,
-            winnerName: winner,
-            isCurrent: isCurrent,
-            isCompleted: pair != null && pair.isResultEntered,
-            onTap: tappable ? () => onMatchTap(pair) : null,
-          ),
-        ));
-
-        // 연결선 (결승 제외)
+        cards.add(Positioned(left: xc - kW / 2, top: y, width: kW, height: kH, child: _MatchSlot(playerA: pA, playerB: pB, winnerName: winner, isCurrent: isCurrent, isCompleted: pair != null && pair.isResultEntered, onTap: tappable ? () => onMatchTap(pair) : null)));
+        
         if (r < n - 1) {
-          final pm = m ~/ 2;
-          final pxc = cx(r + 1, pm);
-          final py = yTop(r + 1);
-          final midY = y - kVGap / 2;
-
+          final pm = m ~/ 2, pxc = cx(r + 1, pm), pyNext = yTop(r + 1), midY = y - kVGap / 2;
           lines.add(_Line(xc, y, xc, midY));
           if (m % 2 == 0) {
             final sib = cx(r, m + 1);
             lines.add(_Line(xc, midY, sib, midY));
-            lines.add(_Line(pxc, midY, pxc, py + kH));
+            lines.add(_Line(pxc, midY, pxc, pyNext + kH));
+          }
+        } else if (r == n - 1) {
+          // 결승전에서 우승자로 이어지는 마지막 선과 우승자 박스
+          final yChamp = yTop(n);
+          if (winner != null) {
+            lines.add(_Line(xc, y, xc, yChamp + 40));
+            cards.add(Positioned(left: xc - (kW * 0.8) / 2, top: yChamp, width: kW * 0.8, height: 40, child: Container(decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.shade600, width: 2), boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.2), blurRadius: 6)]), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.emoji_events, color: Colors.amber, size: 18), const SizedBox(width: 4), Expanded(child: Text(winner, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))])))));
+            cards.add(Positioned(left: 0, right: 0, top: yChamp - 25, child: const Center(child: Text('🏆 최종 우승', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)))));
           }
         }
       }
     }
-
-    // 최종 우승자 배지
-    final finalRound = displayRounds[n - 1];
-    if (finalRound != null && finalRound.pairs.isNotEmpty) {
-      final fp = finalRound.pairs.first;
-      if (fp.isResultEntered && fp.winnerId != null) {
-        final name = fp.winnerId == fp.black.id ? fp.black.name : fp.white.name;
-        cards.add(Positioned(
-          left: cx(n - 1, 0) - 70,
-          top: 0,
-          width: 140,
-          child: _WinnerBadge(name: name),
-        ));
-      }
-    }
-
-    final totalW = leafSlotW * math.pow(2, n - 1);
-    final totalH = n * kH + (n - 1) * kVGap + 200;
-
-    return SizedBox(
-      width: totalW,
-      height: totalH,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          CustomPaint(
-            size: Size(totalW, totalH),
-            painter: _LinePainter(lines: lines),
-          ),
-          ...cards,
-        ],
-      ),
-    );
+    final totalW = leafSlotW * math.pow(2, n - 1), totalH = (n + 1) * kH + n * kVGap + 200;
+    return SizedBox(width: totalW, height: totalH, child: Stack(clipBehavior: Clip.none, children: [CustomPaint(size: Size(totalW, totalH), painter: _LinePainter(lines: lines)), ...cards]));
   }
 }
 
-// ── 매치 슬롯 카드 ──────────────────────────────────────────────────────────
-class _MatchSlot extends StatelessWidget {
-  final String? playerA, playerB, winnerName;
-  final bool isCurrent, isCompleted;
-  final VoidCallback? onTap;
-
-  const _MatchSlot({
-    this.playerA, this.playerB, this.winnerName,
-    required this.isCurrent, required this.isCompleted, this.onTap,
-  });
+// ── 클래식 브라켓 트리 ────────────────────────────────────────────────
+class _ClassicBracketTree extends StatelessWidget {
+  final List<PairingResult?> displayRounds;
+  final int totalRounds;
+  final int currentRoundIdx;
+  final int qCount;
+  final void Function(MacmahonPair) onMatchTap;
+  final bool isVertical;
+  static const double kW = 140.0, kH = 36.0, kHGap = 60.0, kVGap = 20.0;
+  const _ClassicBracketTree({required this.displayRounds, required this.totalRounds, required this.currentRoundIdx, required this.qCount, required this.onMatchTap, required this.isVertical});
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isCurrent && !isCompleted
-        ? AppTheme.primary
-        : isCompleted
-            ? Colors.green.shade400
-            : Colors.grey.shade400;
+    final n = totalRounds, totalLevels = n + 1;
+    final cards = <Widget>[], lines = <_Line>[];
+    final nodes = List.generate(totalLevels, (_) => <_NodeData?>[]);
+    final round1 = displayRounds[0];
+    final expectedLeafs = math.pow(2, n).toInt();
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: borderColor, width: isCurrent && !isCompleted ? 2 : 1.5),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.07), blurRadius: 4)],
-        ),
-        child: Column(
-          children: [
-            _SlotRow(
-              name: playerA ?? '진출자 미정',
-              isEmpty: playerA == null,
-              isWinner: winnerName != null && winnerName == playerA,
-              isLoser: isCompleted && winnerName != playerA && playerA != null,
-              label: '흑',
-            ),
-            Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-            _SlotRow(
-              name: playerB ?? '진출자 미정',
-              isEmpty: playerB == null,
-              isWinner: winnerName != null && winnerName == playerB,
-              isLoser: isCompleted && winnerName != playerB && playerB != null,
-              label: '백',
-            ),
-          ],
-        ),
-      ),
-    );
+    for (int m = 0; m < expectedLeafs / 2; m++) {
+      final pair = (round1 != null && m < round1.pairs.length) ? round1.pairs[m] : null;
+      nodes[0].add(_NodeData(name: pair?.black.name, isWinner: pair?.winnerId == pair?.black.id && pair?.winnerId != null, pair: pair, isCurrentMatch: currentRoundIdx == 0));
+      nodes[0].add(_NodeData(name: pair?.white.name, isWinner: pair?.winnerId == pair?.white.id && pair?.winnerId != null, pair: pair, isCurrentMatch: currentRoundIdx == 0));
+    }
+    for (int level = 1; level < totalLevels; level++) {
+      final round = displayRounds[level - 1], nextRound = (level < n) ? displayRounds[level] : null;
+      final expectedNodes = math.pow(2, n - level).toInt();
+      for (int m = 0; m < expectedNodes; m++) {
+        final pair = (round != null && m < round.pairs.length) ? round.pairs[m] : null;
+        String? winnerName;
+        if (pair != null && pair.isResultEntered && pair.winnerId != null) winnerName = (pair.winnerId == pair.black.id) ? pair.black.name : pair.white.name;
+        bool isWinner = false;
+        if (nextRound != null) {
+          final nextMatchIdx = m ~/ 2;
+          if (nextMatchIdx < nextRound.pairs.length) {
+            final nextMatch = nextRound.pairs[nextMatchIdx];
+            if (nextMatch.isResultEntered && (nextMatch.winnerId == pair?.winnerId && pair?.winnerId != null)) isWinner = true;
+          }
+        } else if (level == n) isWinner = pair?.winnerId != null && pair?.isResultEntered == true;
+        bool isCurrent = (level - 1) == currentRoundIdx;
+        MacmahonPair? activePair = pair;
+        if (!isCurrent && level == currentRoundIdx && nextRound != null && m < nextRound.pairs.length * 2) { isCurrent = true; activePair = nextRound.pairs[m ~/ 2]; }
+        nodes[level].add(_NodeData(name: winnerName, isWinner: isWinner, pair: activePair, isCurrentMatch: isCurrent));
+      }
+    }
+
+    double cx(int level, int m) {
+      if (isVertical) {
+        final step = math.pow(2, level).toDouble();
+        return (m * step + (step - 1) / 2.0) * (kW + 20.0) + 50;
+      }
+      return level * (kW + kHGap) + 50;
+    }
+    double cy(int level, int m) {
+      if (isVertical) return (totalLevels - 1 - level) * (kH + 60.0) + 80;
+      final step = math.pow(2, level).toDouble();
+      return (m * step + (step - 1) / 2.0) * (kH + kVGap) + 100;
+    }
+
+    for (int level = 0; level < totalLevels; level++) {
+      if (level > 0 && level <= n) {
+        final rName = MacmahonUtils.getRoundName(currentRound: level, totalRounds: n, format: TournamentFormat.knockout, playerCount: qCount, stage: 2);
+        cards.add(Positioned(
+          left: cx(level, isVertical ? 0 : 0) - (isVertical ? 0 : kW/2), 
+          top: isVertical ? cy(level, 0) - 30 : 40, 
+          width: isVertical ? (kW + 20.0) * math.pow(2, level) : kW,
+          child: Center(child: Text(rName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: (level - 1) == currentRoundIdx ? AppTheme.primary : Colors.grey)))));
+      } else if (level == 0) {
+        cards.add(Positioned(left: cx(0, 0) - (isVertical ? 0 : kW/2), top: isVertical ? cy(0, 0) - 30 : 40, width: isVertical ? (kW + 20.0) * expectedLeafs : kW, child: Center(child: Text('참가 선수', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)))));
+      }
+      for (int m = 0; m < nodes[level].length; m++) {
+        final node = nodes[level][m], x = cx(level, m), y = cy(level, m);
+        cards.add(Positioned(left: x - kW / 2, top: y, width: kW, height: kH, child: _ClassicNodeBox(name: node?.name, isWinner: node?.isWinner ?? false, isLeaf: level == 0, isChampion: level == n, isCurrent: node?.isCurrentMatch ?? false, onTap: (node?.pair != null && node!.isCurrentMatch && !node.pair!.isResultEntered) ? () => onMatchTap(node.pair!) : null)));
+        if (level < n) {
+          if (isVertical) {
+            final nextX = cx(level + 1, m ~/ 2), nextY = cy(level + 1, m ~/ 2), midY = y - kVGap / 2;
+            lines.add(_Line(x, y, x, midY));
+            if (m % 2 == 0) {
+              final sibX = cx(level, m + 1);
+              lines.add(_Line(x, midY, sibX, midY));
+              lines.add(_Line(nextX, midY, nextX, nextY + kH));
+            }
+          } else {
+            final nextX = cx(level + 1, m ~/ 2), nextY = cy(level + 1, m ~/ 2), midX = x + (nextX - x) / 2;
+            lines.add(_Line(x + kW / 2, y + kH / 2, midX, y + kH / 2));
+            if (m % 2 == 0) {
+              final sibY = cy(level, m + 1);
+              lines.add(_Line(midX, y + kH / 2, midX, sibY + kH / 2));
+              lines.add(_Line(midX, nextY + kH / 2, nextX - kW / 2, nextY + kH / 2));
+            }
+          }
+        }
+      }
+    }
+    final totalWidth = isVertical ? (kW + 20.0) * expectedLeafs + 100 : cx(n, 0) + kW + 100;
+    final totalHeight = isVertical ? totalLevels * (kH + 60.0) + 200 : cy(0, expectedLeafs - 1) + kH + 100;
+    return Center(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: SizedBox(width: totalWidth, height: totalHeight, child: Stack(children: [CustomPaint(size: Size(totalWidth, totalHeight), painter: _BracketPainter(lines: lines, color: Colors.blue.shade700, strokeWidth: 2.5)), ...cards])))));
+  }
+}
+
+class _NodeData {
+  final String? name; final bool isWinner; final MacmahonPair? pair; final bool isCurrentMatch;
+  _NodeData({this.name, this.isWinner = false, this.pair, this.isCurrentMatch = false});
+}
+
+class _ClassicNodeBox extends StatelessWidget {
+  final String? name; final bool isWinner, isLeaf, isChampion, isCurrent; final VoidCallback? onTap;
+  const _ClassicNodeBox({this.name, required this.isWinner, required this.isLeaf, required this.isChampion, required this.isCurrent, this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final Color borderColor = isCurrent ? AppTheme.primary : (isWinner ? Colors.green.shade400 : (isLeaf ? Colors.blue.shade300 : Colors.grey.shade300));
+    return GestureDetector(onTap: onTap, child: Container(decoration: BoxDecoration(color: isWinner ? Colors.blue.shade50 : Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: borderColor, width: isCurrent ? 2 : 1.2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 2))]), child: Center(child: Text(name ?? '', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: (isWinner || isChampion) ? FontWeight.bold : FontWeight.normal, color: name == null ? Colors.grey : Colors.black87)))));
+  }
+}
+
+class _MatchSlot extends StatelessWidget {
+  final String? playerA, playerB, winnerName; final bool isCurrent, isCompleted; final VoidCallback? onTap;
+  const _MatchSlot({this.playerA, this.playerB, this.winnerName, required this.isCurrent, required this.isCompleted, this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isCurrent && !isCompleted ? AppTheme.primary : (isCompleted ? Colors.green.shade400 : Colors.grey.shade400);
+    return GestureDetector(onTap: onTap, child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: borderColor, width: isCurrent && !isCompleted ? 2 : 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 4)]), child: Column(children: [
+      _SlotRow(name: playerA ?? '진출자 미정', isEmpty: playerA == null, isWinner: winnerName != null && winnerName == playerA, isLoser: isCompleted && winnerName != playerA && playerA != null, label: '흑'),
+      Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+      _SlotRow(name: playerB ?? '진출자 미정', isEmpty: playerB == null, isWinner: winnerName != null && winnerName == playerB, isLoser: isCompleted && winnerName != playerB && playerB != null, label: '백'),
+    ])));
   }
 }
 
 class _SlotRow extends StatelessWidget {
-  final String name, label;
-  final bool isEmpty, isWinner, isLoser;
-  const _SlotRow({required this.name, required this.label,
-      required this.isEmpty, required this.isWinner, required this.isLoser});
-
+  final String name, label; final bool isEmpty, isWinner, isLoser;
+  const _SlotRow({required this.name, required this.label, required this.isEmpty, required this.isWinner, required this.isLoser});
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        color: isWinner ? Colors.blue.shade50 : null,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(name,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isWinner ? FontWeight.bold : FontWeight.normal,
-                  color: isEmpty ? Colors.grey.shade400
-                      : isLoser ? Colors.grey.shade400
-                      : Colors.black87,
-                  fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal,
-                  decoration: isLoser ? TextDecoration.lineThrough : null,
-                ),
-              ),
-            ),
-            if (isWinner) Icon(Icons.emoji_events, color: Colors.amber.shade600, size: 16),
-          ],
-        ),
-      ),
-    );
+    return Expanded(child: Container(color: isWinner ? Colors.blue.shade50 : null, padding: const EdgeInsets.symmetric(horizontal: 8), child: Row(children: [
+      Expanded(child: Text(name, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: isWinner ? FontWeight.bold : FontWeight.normal, color: isEmpty ? Colors.grey.shade400 : isLoser ? Colors.grey.shade400 : Colors.black87, fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal, decoration: isLoser ? TextDecoration.lineThrough : null))),
+      if (isWinner) Icon(Icons.emoji_events, color: Colors.amber.shade600, size: 16),
+    ])));
   }
 }
 
-// ── 우승자 배지 ────────────────────────────────────────────────────────────
-class _WinnerBadge extends StatelessWidget {
-  final String name;
-  const _WinnerBadge({required this.name});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [Colors.amber.shade400, Colors.orange.shade600]),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.amber.withValues(alpha: 0.4), blurRadius: 10)],
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.emoji_events, color: Colors.white, size: 24),
-        const Text('🏆 우승', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-        Text(name, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-      ]),
-    );
-  }
-}
-
-// ── 챔피언 배너 ────────────────────────────────────────────────────────────
 class _ChampionBanner extends StatelessWidget {
   final PairingResult round;
   const _ChampionBanner({required this.round});
@@ -653,44 +677,26 @@ class _ChampionBanner extends StatelessWidget {
     final fp = round.pairs.first;
     if (!fp.isResultEntered || fp.winnerId == null) return const SizedBox.shrink();
     final name = fp.winnerId == fp.black.id ? fp.black.name : fp.white.name;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      color: Colors.amber.shade50,
-      child: Column(children: [
-        const Text('🏆 최종 우승자', style: TextStyle(fontSize: 14, color: Colors.orange, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-      ]),
-    );
+    return Container(width: double.infinity, padding: const EdgeInsets.all(20), color: Colors.amber.shade50, child: Column(children: [
+      const Text('🏆 최종 우승자', style: TextStyle(fontSize: 14, color: Colors.orange, fontWeight: FontWeight.bold)),
+      const SizedBox(height: 4),
+      Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+    ]));
   }
 }
 
-// ── 승자 선택 버튼 ─────────────────────────────────────────────────────────
-class _WinnerBtn extends StatelessWidget {
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _WinnerBtn({required this.label, required this.color, required this.onTap});
+class _BracketPainter extends CustomPainter {
+  final List<_Line> lines; final Color color; final double strokeWidth;
+  _BracketPainter({required this.lines, required this.color, this.strokeWidth = 2.0});
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-        onPressed: onTap,
-        child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()..color = color..strokeWidth = strokeWidth..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
+    for (final l in lines) canvas.drawLine(Offset(l.x1, l.y1), Offset(l.x2, l.y2), p);
   }
+  @override
+  bool shouldRepaint(_BracketPainter old) => true;
 }
 
-// ── 연결선 ─────────────────────────────────────────────────────────────────
 class _Line { final double x1, y1, x2, y2; const _Line(this.x1, this.y1, this.x2, this.y2); }
 
 class _LinePainter extends CustomPainter {
@@ -699,10 +705,126 @@ class _LinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..color = Colors.grey.shade500..strokeWidth = 1.8..style = PaintingStyle.stroke;
-    for (final l in lines) {
-      canvas.drawLine(Offset(l.x1, l.y1), Offset(l.x2, l.y2), p);
-    }
+    for (final l in lines) canvas.drawLine(Offset(l.x1, l.y1), Offset(l.x2, l.y2), p);
   }
   @override
   bool shouldRepaint(_LinePainter old) => true;
+}
+
+class _DraftPreviewBracket extends StatelessWidget {
+  final List<MacmahonPlayer?> draftPlayers; final int totalRounds; final BracketStyle style; final void Function(int index, MacmahonPlayer player)? onPlayerDropped; final void Function(int index)? onPlayerRemoved;
+  static const double kW = 120.0, kH = 36.0, kVGap = 40.0, kHGap = 12.0;
+  const _DraftPreviewBracket({required this.draftPlayers, required this.totalRounds, required this.style, this.onPlayerDropped, this.onPlayerRemoved});
+  @override
+  Widget build(BuildContext context) {
+    final n = totalRounds, totalLevels = n + 1, cards = <Widget>[], lines = <_Line>[], isClassic = style == BracketStyle.classic, isClassicVertical = style == BracketStyle.classicVertical, expectedLeafs = math.pow(2, n).toInt();
+    final bool isCompact = !isClassic && !isClassicVertical;
+    
+    double cx(int level, int m) {
+      if (isClassic) return level * (kW + 60.0) + 50;
+      final slots = math.pow(2, level).toDouble();
+      final unitW = isCompact ? (kW + 20.0) : (kW + 20.0);
+      return (m * slots + slots / 2.0) * unitW + 50;
+    }
+    double cy(int level, int m) {
+      if (isClassic) { 
+        final step = math.pow(2, level).toDouble(); 
+        return (m * step + (step - 1) / 2.0) * (kH + 20.0) + 50; 
+      }
+      return (totalLevels - 1 - level) * (kH * 2 + kVGap) + 80; // Bottom-to-Top
+    }
+
+    for (int level = 0; level < totalLevels; level++) {
+      int expectedNodes;
+      if (isCompact) {
+        if (level == 0) expectedNodes = math.pow(2, n - 1).toInt();
+        else expectedNodes = math.pow(2, math.max(0, n - 1 - level)).toInt();
+        if (level == n) expectedNodes = 1;
+      } else {
+        expectedNodes = math.pow(2, n - level).toInt();
+      }
+
+      for (int m = 0; m < expectedNodes; m++) {
+        final x = cx(level, m), y = cy(level, m), isLeaf = level == 0;
+        
+        if (isLeaf && isCompact) {
+          final idxA = m * 2, idxB = m * 2 + 1;
+          final nameA = idxA < draftPlayers.length ? draftPlayers[idxA]?.name : null;
+          final nameB = idxB < draftPlayers.length ? draftPlayers[idxB]?.name : null;
+          
+          cards.add(Positioned(
+            left: x - kW / 2, top: y, width: kW, height: kH * 2,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(4), 
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 1))],
+              ),
+              child: Column(children: [
+                _DraftSlot(index: idxA, name: nameA, onDropped: onPlayerDropped, onRemoved: onPlayerRemoved, label: 'A'),
+                const Divider(height: 1, thickness: 1, color: Colors.grey),
+                _DraftSlot(index: idxB, name: nameB, onDropped: onPlayerDropped, onRemoved: onPlayerRemoved, label: 'B'),
+              ]),
+            ),
+          ));
+        } else {
+          final name = (isLeaf && (isClassic || isClassicVertical) && m < draftPlayers.length) ? draftPlayers[m]?.name : null;
+          cards.add(Positioned(
+            left: x - kW / 2, top: y, width: kW, height: kH,
+            child: isLeaf 
+                ? _DraftSlot(index: m, name: name, onDropped: onPlayerDropped, onRemoved: onPlayerRemoved, useBox: true)
+                : Container(
+                    decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.green.shade200)),
+                    child: Center(child: Text(name ?? '', textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                  ),
+          ));
+        }
+        
+        if (level < n) {
+          if (isClassic) {
+            final nextX = cx(level + 1, m ~/ 2), nextY = cy(level + 1, m ~/ 2), midX = x + (nextX - x) / 2;
+            lines.add(_Line(x + kW / 2, y + kH / 2, midX, y + kH / 2));
+            if (m % 2 == 0) {
+              final sibY = cy(level, m + 1);
+              lines.add(_Line(midX, y + kH / 2, midX, sibY + kH / 2));
+              lines.add(_Line(midX, nextY + kH / 2, nextX - kW / 2, nextY + kH / 2));
+            }
+          } else {
+            final pyNext = cy(level + 1, m ~/ 2), midY = y - kVGap / 2;
+            lines.add(_Line(x, y, x, midY));
+            if (m % 2 == 0) {
+              final sibX = cx(level, m + 1);
+              lines.add(_Line(x, midY, sibX, midY));
+              final parentX = cx(level + 1, m ~/ 2);
+              lines.add(_Line(parentX, midY, parentX, pyNext + kH));
+            }
+          }
+        }
+      }
+    }
+    
+    final totalW = isClassic ? cx(n, 0) + kW + 100 : (kW + 20.0) * math.pow(2, isCompact ? n - 1 : n) + 100;
+    final totalH = isClassic ? cy(0, expectedLeafs - 1) + kH + 100 : totalLevels * (kH * 2 + kVGap) + 100;
+    return SizedBox(width: totalW, height: totalH, child: Stack(clipBehavior: Clip.none, children: [CustomPaint(size: Size(totalW, totalH), painter: _BracketPainter(lines: lines, color: Colors.blue.shade700, strokeWidth: 2.0)), ...cards]));
+  }
+}
+
+class _DraftSlot extends StatelessWidget {
+  final int index; final String? name; final String? label; final void Function(int, MacmahonPlayer)? onDropped; final void Function(int)? onRemoved; final bool useBox;
+  const _DraftSlot({required this.index, this.name, this.label, this.onDropped, this.onRemoved, this.useBox = false});
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<MacmahonPlayer>(onAccept: (data) => onDropped?.call(index, data), builder: (context, candidate, _) {
+      final isHovering = candidate.isNotEmpty;
+      final content = GestureDetector(onTap: () => onRemoved?.call(index), child: Container(decoration: useBox ? BoxDecoration(color: isHovering ? AppTheme.primary.withOpacity(0.1) : Colors.red.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: isHovering ? AppTheme.primary : Colors.red.shade200)) : BoxDecoration(color: isHovering ? AppTheme.primary.withOpacity(0.1) : (name == null ? Colors.grey.shade50 : null)), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 6),
+          child: Text(label ?? '${index + 1}', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade700)),
+        ),
+        Expanded(child: Text(name ?? (isHovering ? '배정' : '-'), textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.black))),
+        const SizedBox(width: 8),
+      ])));
+      return useBox ? content : Expanded(child: content);
+    });
+  }
 }
