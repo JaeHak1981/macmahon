@@ -169,7 +169,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 10),
-                    Text('${state.selectedSection} - ${isLeagueStage ? "리그표" : (currentIndex == 0 ? "순위표" : "대국결과표")}', 
+                    Text('${state.selectedSection} - ${isLeagueStage ? "리그표" : (currentIndex == 0 ? "순위표" : (currentIndex == 1 && showLeagueGridWithBracket ? "리그표" : (showBracketTab && (currentIndex == tabsCount - 1) ? "대진표" : "대국결과표")))}', 
                         style: const TextStyle(fontSize: 18)),
                     const SizedBox(height: 20),
                     isLeagueStage
@@ -190,57 +190,89 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                                 onResultTap: (_, __, ___) {},
                                 isExport: true,
                               )
-                            : _ResultGridTab(
-                                state: state,
-                                sorted: sorted,
-                                playerNumbers: playerNumbers,
-                                playerRanks: playerRanks,
-                                verticalController: ScrollController(),
-                                horizontalController: ScrollController(),
-                                onResultTap: (_, __, ___) {},
-                                isExport: true,
-                              )),
+                            : (currentIndex == 1 && showLeagueGridWithBracket
+                                ? _LeagueMatrixTab(
+                                    state: state,
+                                    sorted: sorted,
+                                    playerNumbers: playerNumbers,
+                                    playerRanks: playerRanks,
+                                    onResultTap: (_, __, ___) {},
+                                    isExport: true,
+                                  )
+                                : (showBracketTab && (currentIndex == tabsCount - 1)
+                                    ? const BracketScreen()
+                                    : _ResultGridTab(
+                                        state: state,
+                                        sorted: sorted,
+                                        playerNumbers: playerNumbers,
+                                        playerRanks: playerRanks,
+                                        verticalController: ScrollController(),
+                                        horizontalController: ScrollController(),
+                                        onResultTap: (_, __, ___) {},
+                                        isExport: true,
+                                      )))),
                   ],
                 ),
               ),
             );
 
-            // 전체 길이를 위해 예상 높이 계산 (여백과 행 높이를 대폭 상향하여 절대 잘리지 않도록 강제)
-            double estimatedHeight = 300; // 상단 헤더 및 여백
-            if (isLeagueStage) {
+            // 전체 길이를 위해 예상 높이 계산
+            double estimatedHeight = 300; 
+            double estimatedWidth = 1200;
+
+            if (isLeagueStage || (currentIndex == 1 && showLeagueGridWithBracket)) {
               final Map<String, int> groupCounts = {};
               for (var p in sorted) {
                 final gid = p.groupId ?? "A";
                 groupCounts[gid] = (groupCounts[gid] ?? 0) + 1;
               }
               for (var count in groupCounts.values) {
-                // 조별 헤더 및 간격(150) + (인원수 * 행높이(80))
                 estimatedHeight += 150 + (count * 80);
+              }
+            } else if (showBracketTab && currentIndex == tabsCount - 1) {
+              // 대진표 캡처 크기 계산
+              final qCount = currentData.knockoutQualifiers.isNotEmpty ? currentData.knockoutQualifiers.length : players.length;
+              final n = qCount > 1 ? (math.log(qCount) / math.log(2)).ceil() : 1;
+              if (currentData.bracketStyle == BracketStyle.compact) {
+                estimatedWidth = (320.0 + 50.0) * math.pow(2, n - 1).toInt() + 250;
+                estimatedHeight = n * (140.0 + 120.0) + 400;
+              } else {
+                final expectedLeafs = math.pow(2, n).toInt();
+                final isVertical = currentData.bracketStyle == BracketStyle.classicVertical;
+                if (isVertical) {
+                  estimatedWidth = (280.0 + 100.0) * expectedLeafs + 250;
+                  estimatedHeight = (n + 1) * (70.0 + 100.0) + 300;
+                } else {
+                  estimatedWidth = n * (280.0 + 100.0) + 280.0 + 250;
+                  estimatedHeight = (expectedLeafs - 1) * (70.0 + 100.0) + 70.0 + 250;
+                }
               }
             } else {
               estimatedHeight += 200 + (sorted.length * 80);
             }
-            estimatedHeight += 300; // 하단 절대 안전 여백
+            estimatedHeight += 300; 
 
             // 명시적인 크기를 가진 컨테이너로 감싸서 캡처 라이브러리의 오동작 방지
             final wrapperWidget = Container(
-              width: 1200,
+              width: estimatedWidth,
               height: estimatedHeight,
               color: AppTheme.surface,
               alignment: Alignment.topCenter,
               child: exportWidget,
             );
+            
+            final fileNameSuffix = isLeagueStage ? "리그표" : (currentIndex == 0 ? "순위표" : (currentIndex == 1 && showLeagueGridWithBracket ? "리그표" : (showBracketTab && (currentIndex == tabsCount - 1) ? "대진표" : "대국결과표")));
 
             final imageBytes = await _screenshotController.captureFromWidget(
               wrapperWidget,
               context: context,
-              targetSize: Size(1200, estimatedHeight),
-              delay: const Duration(milliseconds: 200),
+              targetSize: Size(estimatedWidth + 100, estimatedHeight + 100),
+              delay: const Duration(milliseconds: 300),
             );
 
             final path = await ExportService.saveImageBytes(
               imageBytes,
-              state.tournamentName.isNotEmpty ? state.tournamentName : 'tournament',
+              '${state.tournamentName.isNotEmpty ? state.tournamentName : "tournament"}_$fileNameSuffix',
             );
             
             if (path != null && mounted) {

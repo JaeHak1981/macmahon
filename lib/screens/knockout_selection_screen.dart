@@ -4,6 +4,7 @@ import '../models/macmahon_player.dart';
 import '../providers/macmahon_provider.dart';
 import '../utils/macmahon_utils.dart';
 import 'pairing_screen.dart';
+import 'bracket_screen.dart';
 
 class KnockoutSelectionScreen extends ConsumerStatefulWidget {
   const KnockoutSelectionScreen({super.key});
@@ -100,19 +101,17 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
     // 1. 본선 스테이지 전환 및 선발 명단 저장
     await ref.read(macmahonProvider.notifier).startKnockoutStage(_selectedPlayerIds.toList());
     
-    // 2. 즉시 토너먼트 1라운드 대진 생성
-    await ref.read(macmahonProvider.notifier).generatePairing();
-    
     if (!mounted) return;
 
-    // 3. 본선 대진 화면으로 이동 (현재 화면을 대체)
+    // 2. 본선 대진표 화면으로 이동 (현재 화면을 대체)
+    // 여기서 바로 generatePairing을 하지 않고, BracketScreen에서 자동/수동을 선택하게 함
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const PairingScreen()),
+      MaterialPageRoute(builder: (_) => const BracketScreen()),
     );
     
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('본선 토너먼트 대진이 생성되었습니다.')),
+      const SnackBar(content: Text('본선 진출자가 선발되었습니다. 대진 방식을 선택해 주세요.')),
     );
   }
 

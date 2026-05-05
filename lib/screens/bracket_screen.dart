@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:screenshot/screenshot.dart';
 import 'dart:math' as math;
 import '../app_theme.dart';
 import '../providers/macmahon_provider.dart';
 import '../models/macmahon_pair.dart';
 import '../models/macmahon_player.dart';
 import '../utils/macmahon_utils.dart';
+import '../services/export_service.dart';
 
 class BracketScreen extends ConsumerStatefulWidget {
   const BracketScreen({super.key});
@@ -17,9 +20,66 @@ class BracketScreen extends ConsumerStatefulWidget {
 enum DraftStyle { table, direct }
 
 class _BracketScreenState extends ConsumerState<BracketScreen> {
+  final TransformationController _transformationController = TransformationController();
+  final ScreenshotController _screenshotController = ScreenshotController();
   bool _isManualMode = false;
   DraftStyle _draftStyle = DraftStyle.table;
-  List<MacmahonPlayer?>? _draftPlayers; // 연번별 배정된 선수 목록
+  List<MacmahonPlayer?>? _draftPlayers;
+  bool _isUserInteracting = false;
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _updateFitScale(MacmahonState state, BoxConstraints constraints, List<PairingResult?> displayRounds, int totalRounds, int qCount) {
+    if (_isUserInteracting) return;
+    
+    final currentData = state.currentSectionData;
+    final n = totalRounds;
+    final leafSlotW = (320.0 + 50.0);
+    final expectedNodesAtRound0 = math.pow(2, n - 1).toInt();
+    double bW = 0, bH = 0;
+    
+    final isVertical = currentData.bracketStyle == BracketStyle.classicVertical;
+    final isClassic = currentData.bracketStyle == BracketStyle.classic;
+
+    if (currentData.bracketStyle == BracketStyle.compact) {
+      bW = leafSlotW * expectedNodesAtRound0 + 400; // 여백 확대
+      bH = n * (140.0 + 120.0) + 400;
+    } else {
+      final expectedLeafs = math.pow(2, n).toInt();
+      final isVertical = currentData.bracketStyle == BracketStyle.classicVertical;
+      if (isVertical) {
+        bW = (280.0 + 100.0) * expectedLeafs + 400;
+        bH = (n + 1) * (70.0 + 100.0) + 400;
+      } else {
+        bW = n * (280.0 + 100.0) + 280.0 + 400;
+        bH = (expectedLeafs - 1) * (70.0 + 100.0) + 70.0 + 400;
+      }
+    }
+
+    final scaleX = (constraints.maxWidth - 40) / bW;
+    final scaleY = (constraints.maxHeight - 40) / bH;
+    double fitScale = math.min(scaleX, scaleY).clamp(0.001, 1.0);
+    
+    // 중앙 정렬을 위한 이동값 계산
+    final double tx = (constraints.maxWidth - bW * fitScale) / 2;
+    final double ty = (constraints.maxHeight - bH * fitScale) / 2;
+    
+    final Matrix4 targetMatrix = Matrix4.identity()
+      ..translate(tx, ty)
+      ..scale(fitScale);
+
+    final currentMatrix = _transformationController.value;
+    if (currentMatrix != targetMatrix) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _transformationController.value = targetMatrix;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -268,41 +328,117 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
         );
       }
 
+      final selectedPlayers = qualifiers.isNotEmpty 
+          ? state.currentSectionPlayers.where((p) => qualifiers.contains(p.id)).toList()
+          : state.currentSectionPlayers;
+
       return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.account_tree_outlined, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text('본선 대진이 아직 생성되지 않았습니다.', style: TextStyle(color: Colors.grey, fontSize: 16)),
-            const SizedBox(height: 24),
-            if (state.errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(state.errorMessage!, style: const TextStyle(color: Colors.red)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.account_tree_outlined, size: 64, color: AppTheme.primaryLight),
+              const SizedBox(height: 16),
+              Text('$qCount강 토너먼트 대기', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              const Text('본선 진출자 명단을 확인하고 대진 생성 방식을 선택하세요.', style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 24),
+              
+              // 진출자 명단 박스
+              Container(
+                height: 300,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('본선 진출 선수', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('${selectedPlayers.length}명', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary)),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: selectedPlayers.length,
+                        itemBuilder: (context, index) {
+                          final p = selectedPlayers[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(radius: 10, backgroundColor: AppTheme.primaryLight, child: Text('${index + 1}', style: const TextStyle(fontSize: 10, color: Colors.white))),
+                                const SizedBox(width: 12),
+                                Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                const Spacer(),
+                                Text(p.groupId != null ? '${p.groupId}조' : '', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            if (state.isLoading)
-              const CircularProgressIndicator()
-            else
-              Column(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await ref.read(macmahonProvider.notifier).generatePairing();
-                    },
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('자동 시드 배정 생성', style: TextStyle(fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton.icon(
-                    onPressed: () => setState(() => _isManualMode = true),
-                    icon: const Icon(Icons.edit_note),
-                    label: const Text('선수 순서 직접 조정하기 (수동)'),
-                  ),
-                ],
-              ),
-          ],
+              
+              const SizedBox(height: 32),
+              if (state.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Text(state.errorMessage!, style: const TextStyle(color: Colors.red)),
+                ),
+              if (state.isLoading)
+                const CircularProgressIndicator()
+              else
+                Column(
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          await ref.read(macmahonProvider.notifier).generatePairing();
+                        },
+                        icon: const Icon(Icons.auto_awesome),
+                        label: const Text('자동 시드 배정 생성', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() => _isManualMode = true),
+                        icon: const Icon(Icons.edit_note),
+                        label: const Text('수동 대진 추첨 (드래그)', style: TextStyle(fontSize: 15)),
+                        style: OutlinedButton.styleFrom(side: const BorderSide(color: AppTheme.primary), foregroundColor: AppTheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       );
     }
@@ -335,24 +471,57 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
           ),
         ),
         Expanded(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 1200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: displayRounds.every((r) => r == null)
-                ? buildEmptyState()
-                : Center(
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      child: _buildMainBracket(
-                        style: currentData.bracketStyle,
-                        displayRounds: displayRounds,
-                        totalRounds: totalRounds,
-                        currentRoundIdx: currentRoundIdx,
-                        qCount: qCount,
-                        onMatchTap: onMatchTap,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (displayRounds.any((r) => r != null)) {
+                _updateFitScale(state, constraints, displayRounds, totalRounds, qCount);
+              }
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                child: displayRounds.every((r) => r == null)
+                    ? buildEmptyState()
+                    : Listener(
+                        onPointerSignal: (pointerSignal) {
+                          if (pointerSignal is PointerScrollEvent) {
+                            final double zoomFactor = 1.1;
+                            final double scaleDelta = pointerSignal.scrollDelta.dy > 0 ? 1 / zoomFactor : zoomFactor;
+                            final Offset localPosition = pointerSignal.localPosition;
+                            
+                            final Matrix4 matrix = _transformationController.value.clone();
+                            final double currentScale = matrix.getMaxScaleOnAxis();
+                            final double targetScale = (currentScale * scaleDelta).clamp(0.001, 5.0);
+                            final double actualDelta = targetScale / currentScale;
+
+                            // 마우스 커서 위치를 중심으로 확대/축소
+                            matrix.translate(localPosition.dx, localPosition.dy);
+                            matrix.scale(actualDelta);
+                            matrix.translate(-localPosition.dx, -localPosition.dy);
+                            
+                            _transformationController.value = matrix;
+                            _isUserInteracting = true;
+                          }
+                        },
+                        child: InteractiveViewer(
+                          transformationController: _transformationController,
+                          minScale: 0.001,
+                          maxScale: 5.0,
+                          boundaryMargin: const EdgeInsets.all(2000),
+                          constrained: false,
+                          onInteractionStart: (_) => _isUserInteracting = true,
+                          child: Container(
+                            child: _buildMainBracket(
+                              style: currentData.bracketStyle,
+                              displayRounds: displayRounds,
+                              totalRounds: totalRounds,
+                              currentRoundIdx: currentRoundIdx,
+                              qCount: qCount,
+                              onMatchTap: onMatchTap,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+              );
+            },
           ),
         ),
         if (!tournamentDone && currentIsKnockout)
@@ -394,6 +563,81 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
         title: Text('${state.selectedSection} 대진표'),
         elevation: 0,
         actions: [
+          IconButton(
+            tooltip: '이미지로 저장',
+            icon: const Icon(Icons.image_outlined),
+            onPressed: () async {
+              final state = ref.read(macmahonProvider);
+              final currentData = state.currentSectionData;
+              final qCount = currentData.knockoutQualifiers.isNotEmpty ? currentData.knockoutQualifiers.length : state.currentSectionPlayers.length;
+              final n = qCount > 1 ? (math.log(qCount) / math.log(2)).ceil() : 1;
+              
+              double bW = 0, bH = 0;
+              if (currentData.bracketStyle == BracketStyle.compact) {
+                bW = (320.0 + 50.0) * math.pow(2, n - 1).toInt() + 200;
+                bH = n * (140.0 + 120.0) + 300;
+              } else {
+                final expectedLeafs = math.pow(2, n).toInt();
+                final isVertical = currentData.bracketStyle == BracketStyle.classicVertical;
+                if (isVertical) {
+                  bW = (280.0 + 100.0) * expectedLeafs + 200;
+                  bH = (n + 1) * (70.0 + 100.0) + 300;
+                } else {
+                  bW = n * (280.0 + 100.0) + 280.0 + 200;
+                  bH = (expectedLeafs - 1) * (70.0 + 100.0) + 70.0 + 250;
+                }
+              }
+
+              final exportWidget = Material(
+                color: AppTheme.background,
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(state.tournamentName.isNotEmpty ? state.tournamentName : '대진표', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 10),
+                      Text('${state.selectedSection} - 토너먼트 대진표', style: const TextStyle(fontSize: 20)),
+                      const SizedBox(height: 30),
+                      _buildMainBracket(
+                        style: currentData.bracketStyle,
+                        displayRounds: displayRounds,
+                        totalRounds: totalRounds,
+                        currentRoundIdx: currentRoundIdx,
+                        qCount: qCount,
+                        onMatchTap: onMatchTap,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+
+              final imageBytes = await _screenshotController.captureFromWidget(
+                exportWidget,
+                context: context,
+                targetSize: Size(bW + 400, bH + 400),
+                delay: const Duration(milliseconds: 300),
+              );
+
+              final path = await ExportService.saveImageBytes(
+                imageBytes,
+                '${state.tournamentName.isNotEmpty ? state.tournamentName : "tournament"}_대진표',
+              );
+              
+              if (path != null && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('이미지가 저장되었습니다: $path')));
+              }
+            },
+          ),
+          IconButton(
+            tooltip: '화면에 맞춤',
+            icon: const Icon(Icons.fullscreen_exit),
+            onPressed: () {
+              setState(() {
+                _isUserInteracting = false;
+              });
+            },
+          ),
           IconButton(
             tooltip: '본선 초기화',
             icon: const Icon(Icons.history),
@@ -466,13 +710,14 @@ class _CompactBracketTree extends StatelessWidget {
   final int currentRoundIdx;
   final int qCount;
   final void Function(MacmahonPair) onMatchTap;
-  static const double kW = 168.0, kH = 72.0, kVGap = 60.0, kHGap = 20.0;
+  static const double kW = 320.0, kH = 140.0, kVGap = 120.0, kHGap = 50.0;
   const _CompactBracketTree({required this.displayRounds, required this.totalRounds, required this.currentRoundIdx, required this.qCount, required this.onMatchTap});
 
   @override
   Widget build(BuildContext context) {
     final n = totalRounds;
     final leafSlotW = kW + kHGap;
+    final expectedLeafs = math.pow(2, n - 1).toInt();
     final winnerMap = <int, Map<int, String>>{};
     for (int r = 0; r < n; r++) {
       final round = displayRounds[r];
@@ -485,9 +730,9 @@ class _CompactBracketTree extends StatelessWidget {
     }
     double cx(int r, int m) {
       final slots = math.pow(2, r).toDouble();
-      return (m * slots + slots / 2.0) * leafSlotW;
+      return (m * slots + slots / 2.0) * leafSlotW + 200;
     }
-    double yTop(int r) => (n - r) * (kH + kVGap) + 80;
+    double yTop(int r) => (n - r) * (kH + kVGap) + 200;
     final lines = <_Line>[];
     final cards = <Widget>[];
     for (int r = 0; r < n; r++) {
@@ -500,7 +745,7 @@ class _CompactBracketTree extends StatelessWidget {
         String? pB = pair != null ? pair.white.name : (r > 0 && winnerMap.containsKey(r - 1) ? winnerMap[r - 1]![m * 2 + 1] : null);
         String? winner;
         if (pair != null && pair.isResultEntered && pair.winnerId != null) winner = pair.winnerId == pair.black.id ? pair.black.name : pair.white.name;
-        final tappable = isCurrent && pair != null && !pair.isResultEntered;
+        final tappable = isCurrent && pair != null;
         cards.add(Positioned(left: xc - kW / 2, top: y, width: kW, height: kH, child: _MatchSlot(playerA: pA, playerB: pB, winnerName: winner, isCurrent: isCurrent, isCompleted: pair != null && pair.isResultEntered, onTap: tappable ? () => onMatchTap(pair) : null)));
         
         if (r < n - 1) {
@@ -511,18 +756,50 @@ class _CompactBracketTree extends StatelessWidget {
             lines.add(_Line(xc, midY, sib, midY));
             lines.add(_Line(pxc, midY, pxc, pyNext + kH));
           }
-        } else if (r == n - 1) {
-          // 결승전에서 우승자로 이어지는 마지막 선과 우승자 박스
-          final yChamp = yTop(n);
-          if (winner != null) {
-            lines.add(_Line(xc, y, xc, yChamp + 40));
-            cards.add(Positioned(left: xc - (kW * 0.8) / 2, top: yChamp, width: kW * 0.8, height: 40, child: Container(decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.shade600, width: 2), boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.2), blurRadius: 6)]), child: Center(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Icon(Icons.emoji_events, color: Colors.amber, size: 18), const SizedBox(width: 4), Expanded(child: Text(winner, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)))])))));
-            cards.add(Positioned(left: 0, right: 0, top: yChamp - 25, child: const Center(child: Text('🏆 최종 우승', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)))));
+          } else if (r == n - 1) {
+            // 결승전에서 우승자로 이어지는 마지막 선과 우승자 박스
+            final yChamp = yTop(n);
+            if (winner != null) {
+              final champW = kW * 1.2;
+              final champH = 80.0;
+              lines.add(_Line(xc, y, xc, yChamp + champH));
+              cards.add(Positioned(
+                left: xc - champW / 2, 
+                top: yChamp, 
+                width: champW, 
+                height: champH, 
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50, 
+                    borderRadius: BorderRadius.circular(16), 
+                    border: Border.all(color: Colors.amber.shade600, width: 3), 
+                    boxShadow: [BoxShadow(color: Colors.amber.withOpacity(0.3), blurRadius: 12, spreadRadius: 2)]
+                  ), 
+                  child: Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center, 
+                      children: [
+                        const Icon(Icons.emoji_events, color: Colors.amber, size: 36), 
+                        const SizedBox(width: 12), 
+                        Flexible(
+                          child: Text(
+                            winner, 
+                            textAlign: TextAlign.center, 
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 32, color: Colors.black)
+                          ),
+                        ),
+                      ]
+                    )
+                  )
+                )
+              ));
+              cards.add(Positioned(left: 0, right: 0, top: yChamp - 35, child: const Center(child: Text('🏆 최종 우승', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.orange)))));
+            }
           }
-        }
       }
     }
-    final totalW = leafSlotW * math.pow(2, n - 1), totalH = (n + 1) * kH + n * kVGap + 200;
+    final totalW = leafSlotW * expectedLeafs + 400;
+    final totalH = n * (kH + kVGap) + 400;
     return SizedBox(width: totalW, height: totalH, child: Stack(clipBehavior: Clip.none, children: [CustomPaint(size: Size(totalW, totalH), painter: _LinePainter(lines: lines)), ...cards]));
   }
 }
@@ -535,7 +812,7 @@ class _ClassicBracketTree extends StatelessWidget {
   final int qCount;
   final void Function(MacmahonPair) onMatchTap;
   final bool isVertical;
-  static const double kW = 140.0, kH = 36.0, kHGap = 60.0, kVGap = 20.0;
+  static const double kW = 280.0, kH = 70.0, kHGap = 100.0, kVGap = 100.0;
   const _ClassicBracketTree({required this.displayRounds, required this.totalRounds, required this.currentRoundIdx, required this.qCount, required this.onMatchTap, required this.isVertical});
 
   @override
@@ -543,7 +820,7 @@ class _ClassicBracketTree extends StatelessWidget {
     final n = totalRounds, totalLevels = n + 1;
     final cards = <Widget>[], lines = <_Line>[];
     final nodes = List.generate(totalLevels, (_) => <_NodeData?>[]);
-    final round1 = displayRounds[0];
+    final round1 = displayRounds.isNotEmpty ? displayRounds[0] : null;
     final expectedLeafs = math.pow(2, n).toInt();
 
     for (int m = 0; m < expectedLeafs / 2; m++) {
@@ -551,8 +828,10 @@ class _ClassicBracketTree extends StatelessWidget {
       nodes[0].add(_NodeData(name: pair?.black.name, isWinner: pair?.winnerId == pair?.black.id && pair?.winnerId != null, pair: pair, isCurrentMatch: currentRoundIdx == 0));
       nodes[0].add(_NodeData(name: pair?.white.name, isWinner: pair?.winnerId == pair?.white.id && pair?.winnerId != null, pair: pair, isCurrentMatch: currentRoundIdx == 0));
     }
+    
     for (int level = 1; level < totalLevels; level++) {
-      final round = displayRounds[level - 1], nextRound = (level < n) ? displayRounds[level] : null;
+      final round = level <= displayRounds.length ? displayRounds[level - 1] : null;
+      final nextRound = level < displayRounds.length ? displayRounds[level] : null;
       final expectedNodes = math.pow(2, n - level).toInt();
       for (int m = 0; m < expectedNodes; m++) {
         final pair = (round != null && m < round.pairs.length) ? round.pairs[m] : null;
@@ -576,30 +855,93 @@ class _ClassicBracketTree extends StatelessWidget {
     double cx(int level, int m) {
       if (isVertical) {
         final step = math.pow(2, level).toDouble();
-        return (m * step + (step - 1) / 2.0) * (kW + 20.0) + 50;
+        return (m * step + (step - 1) / 2.0) * (kW + kHGap) + 200; // 여백 확대
       }
-      return level * (kW + kHGap) + 50;
+      return level * (kW + kHGap) + 200; // 여백 확대
     }
     double cy(int level, int m) {
-      if (isVertical) return (totalLevels - 1 - level) * (kH + 60.0) + 80;
+      if (isVertical) return (totalLevels - 1 - level) * (kH + kVGap) + 200; // 여백 확대
       final step = math.pow(2, level).toDouble();
-      return (m * step + (step - 1) / 2.0) * (kH + kVGap) + 100;
+      return (m * step + (step - 1) / 2.0) * (kH + kVGap) + 200; // 여백 확대
     }
 
-    for (int level = 0; level < totalLevels; level++) {
-      if (level > 0 && level <= n) {
-        final rName = MacmahonUtils.getRoundName(currentRound: level, totalRounds: n, format: TournamentFormat.knockout, playerCount: qCount, stage: 2);
-        cards.add(Positioned(
-          left: cx(level, isVertical ? 0 : 0) - (isVertical ? 0 : kW/2), 
-          top: isVertical ? cy(level, 0) - 30 : 40, 
-          width: isVertical ? (kW + 20.0) * math.pow(2, level) : kW,
-          child: Center(child: Text(rName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: (level - 1) == currentRoundIdx ? AppTheme.primary : Colors.grey)))));
-      } else if (level == 0) {
-        cards.add(Positioned(left: cx(0, 0) - (isVertical ? 0 : kW/2), top: isVertical ? cy(0, 0) - 30 : 40, width: isVertical ? (kW + 20.0) * expectedLeafs : kW, child: Center(child: Text('참가 선수', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey)))));
+    // 라운드 이름 추가 (선을 완전히 가리고 여러 곳에 반복 배치하여 시인성 확보)
+    for (int level = 1; level <= n; level++) {
+      final rName = MacmahonUtils.getRoundName(currentRound: level, totalRounds: n, format: TournamentFormat.knockout, playerCount: qCount, stage: 2);
+      final isCurrent = (level - 1) == currentRoundIdx;
+      final expectedNodes = math.pow(2, n - level).toInt();
+      
+      // 반복 배치할 위치 리스트 생성 (더 촘촘하게 배치하여 빈 곳 제거)
+      final List<double> xPositions = [];
+      if (isVertical) {
+        // 최소 2~3경기마다 하나씩 배치되도록 간격 조정
+        int step = (expectedNodes > 4) ? expectedNodes ~/ 3 : 1;
+        if (step < 1) step = 1;
+        
+        for (int m = 0; m < expectedNodes; m += step) {
+          xPositions.add(cx(level, m));
+        }
+        // 마지막 칸이 빠졌다면 추가
+        if (xPositions.isNotEmpty && xPositions.last != cx(level, expectedNodes - 1)) {
+          xPositions.add(cx(level, expectedNodes - 1));
+        }
+      } else {
+        xPositions.add(cx(level, 0));
       }
+
+      for (final xPos in xPositions) {
+        final double labelY = isVertical 
+            ? cy(level, 0) + kH + 25 
+            : 40.0;
+
+        cards.add(Positioned(
+          left: xPos - 125,
+          top: labelY,
+          width: 250,
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: isCurrent ? AppTheme.primary : Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: isCurrent ? AppTheme.primary : Colors.blueGrey.shade400, width: 3),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))
+                ],
+              ),
+              child: Text(
+                rName,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: isCurrent ? Colors.white : Colors.black87,
+                ),
+              ),
+            ),
+          ),
+        ));
+      }
+    }
+
+    // 카드 및 선 생성
+    for (int level = 0; level < totalLevels; level++) {
       for (int m = 0; m < nodes[level].length; m++) {
         final node = nodes[level][m], x = cx(level, m), y = cy(level, m);
-        cards.add(Positioned(left: x - kW / 2, top: y, width: kW, height: kH, child: _ClassicNodeBox(name: node?.name, isWinner: node?.isWinner ?? false, isLeaf: level == 0, isChampion: level == n, isCurrent: node?.isCurrentMatch ?? false, onTap: (node?.pair != null && node!.isCurrentMatch && !node.pair!.isResultEntered) ? () => onMatchTap(node.pair!) : null)));
+        cards.add(Positioned(
+          left: x - kW / 2, 
+          top: y, 
+          width: kW, 
+          height: kH, 
+          child: _ClassicNodeBox(
+            name: node?.name, 
+            isWinner: node?.isWinner ?? false, 
+            isLeaf: level == 0, 
+            isChampion: level == n, 
+            isCurrent: node?.isCurrentMatch ?? false, 
+            onTap: (node?.pair != null && node!.isCurrentMatch) ? () => onMatchTap(node.pair!) : null
+          )
+        ));
+        
         if (level < n) {
           if (isVertical) {
             final nextX = cx(level + 1, m ~/ 2), nextY = cy(level + 1, m ~/ 2), midY = y - kVGap / 2;
@@ -621,9 +963,24 @@ class _ClassicBracketTree extends StatelessWidget {
         }
       }
     }
-    final totalWidth = isVertical ? (kW + 20.0) * expectedLeafs + 100 : cx(n, 0) + kW + 100;
-    final totalHeight = isVertical ? totalLevels * (kH + 60.0) + 200 : cy(0, expectedLeafs - 1) + kH + 100;
-    return Center(child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: SingleChildScrollView(scrollDirection: Axis.vertical, child: SizedBox(width: totalWidth, height: totalHeight, child: Stack(children: [CustomPaint(size: Size(totalWidth, totalHeight), painter: _BracketPainter(lines: lines, color: Colors.blue.shade700, strokeWidth: 2.5)), ...cards])))));
+
+    final totalWidth = isVertical ? (kW + kHGap) * expectedLeafs + 400 : cx(n, 0) + kW + 400;
+    final totalHeight = isVertical ? (totalLevels) * (kH + kVGap) + 400 : cy(0, expectedLeafs - 1) + kH + 400;
+    
+    return SizedBox(
+      width: totalWidth,
+      height: totalHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          CustomPaint(
+            size: Size(totalWidth, totalHeight),
+            painter: _BracketPainter(lines: lines, color: AppTheme.primary, strokeWidth: 2.5),
+          ),
+          ...cards,
+        ],
+      ),
+    );
   }
 }
 
@@ -637,8 +994,37 @@ class _ClassicNodeBox extends StatelessWidget {
   const _ClassicNodeBox({this.name, required this.isWinner, required this.isLeaf, required this.isChampion, required this.isCurrent, this.onTap});
   @override
   Widget build(BuildContext context) {
-    final Color borderColor = isCurrent ? AppTheme.primary : (isWinner ? Colors.green.shade400 : (isLeaf ? Colors.blue.shade300 : Colors.grey.shade300));
-    return GestureDetector(onTap: onTap, child: Container(decoration: BoxDecoration(color: isWinner ? Colors.blue.shade50 : Colors.white, borderRadius: BorderRadius.circular(4), border: Border.all(color: borderColor, width: isCurrent ? 2 : 1.2), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0, 2))]), child: Center(child: Text(name ?? '', textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: (isWinner || isChampion) ? FontWeight.bold : FontWeight.normal, color: name == null ? Colors.grey : Colors.black87)))));
+    final bool isWinnerActive = isWinner || isChampion;
+    final Color borderColor = isCurrent ? AppTheme.primary : (isWinnerActive ? Colors.green.shade400 : (isLeaf ? Colors.blue.shade300 : Colors.grey.shade300));
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isWinnerActive ? Colors.blue.shade50 : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: borderColor, width: isCurrent ? 3 : 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Center(
+          child: Text(
+            name ?? (isLeaf ? '?' : ''),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: name == null ? Colors.grey : Colors.black87,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -648,11 +1034,36 @@ class _MatchSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = isCurrent && !isCompleted ? AppTheme.primary : (isCompleted ? Colors.green.shade400 : Colors.grey.shade400);
-    return GestureDetector(onTap: onTap, child: Container(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: borderColor, width: isCurrent && !isCompleted ? 2 : 1.5), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 4)]), child: Column(children: [
-      _SlotRow(name: playerA ?? '진출자 미정', isEmpty: playerA == null, isWinner: winnerName != null && winnerName == playerA, isLoser: isCompleted && winnerName != playerA && playerA != null, label: '흑'),
-      Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
-      _SlotRow(name: playerB ?? '진출자 미정', isEmpty: playerB == null, isWinner: winnerName != null && winnerName == playerB, isLoser: isCompleted && winnerName != playerB && playerB != null, label: '백'),
-    ])));
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: borderColor,
+            width: isCurrent && !isCompleted ? 3.5 : 2.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isCurrent && !isCompleted ? AppTheme.primary.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            )
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            children: [
+              _SlotRow(name: playerA ?? '진출자 미정', isEmpty: playerA == null, isWinner: winnerName != null && winnerName == playerA, isLoser: isCompleted && winnerName != playerA && playerA != null, label: '흑'),
+              Container(height: 1.5, color: Colors.grey.shade100),
+              _SlotRow(name: playerB ?? '진출자 미정', isEmpty: playerB == null, isWinner: winnerName != null && winnerName == playerB, isLoser: isCompleted && winnerName != playerB && playerB != null, label: '백'),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -661,10 +1072,43 @@ class _SlotRow extends StatelessWidget {
   const _SlotRow({required this.name, required this.label, required this.isEmpty, required this.isWinner, required this.isLoser});
   @override
   Widget build(BuildContext context) {
-    return Expanded(child: Container(color: isWinner ? Colors.blue.shade50 : null, padding: const EdgeInsets.symmetric(horizontal: 8), child: Row(children: [
-      Expanded(child: Text(name, textAlign: TextAlign.center, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: isWinner ? FontWeight.bold : FontWeight.normal, color: isEmpty ? Colors.grey.shade400 : isLoser ? Colors.grey.shade400 : Colors.black87, fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal, decoration: isLoser ? TextDecoration.lineThrough : null))),
-      if (isWinner) Icon(Icons.emoji_events, color: Colors.amber.shade600, size: 16),
-    ])));
+    final Color textColor = isEmpty ? Colors.grey.shade300 : (isLoser ? Colors.grey.shade400 : Colors.black);
+    return Expanded(
+      child: Container(
+        color: isWinner ? Colors.blue.shade50 : null,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: label == '흑' ? Colors.black87 : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Center(child: Text(label[0], style: TextStyle(color: label == '흑' ? Colors.white : Colors.black87, fontSize: 10, fontWeight: FontWeight.bold))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                name,
+                textAlign: TextAlign.start,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  color: textColor,
+                  fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal,
+                  decoration: isLoser ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ),
+            if (isWinner) Icon(Icons.emoji_events, color: Colors.amber.shade700, size: 24),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -687,7 +1131,7 @@ class _ChampionBanner extends StatelessWidget {
 
 class _BracketPainter extends CustomPainter {
   final List<_Line> lines; final Color color; final double strokeWidth;
-  _BracketPainter({required this.lines, required this.color, this.strokeWidth = 2.0});
+  _BracketPainter({required this.lines, required this.color, this.strokeWidth = 3.0});
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..color = color..strokeWidth = strokeWidth..style = PaintingStyle.stroke..strokeCap = StrokeCap.round;
@@ -704,7 +1148,7 @@ class _LinePainter extends CustomPainter {
   const _LinePainter({required this.lines});
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = Colors.grey.shade500..strokeWidth = 1.8..style = PaintingStyle.stroke;
+    final p = Paint()..color = Colors.grey.shade400..strokeWidth = 2.5..style = PaintingStyle.stroke;
     for (final l in lines) canvas.drawLine(Offset(l.x1, l.y1), Offset(l.x2, l.y2), p);
   }
   @override
@@ -712,8 +1156,12 @@ class _LinePainter extends CustomPainter {
 }
 
 class _DraftPreviewBracket extends StatelessWidget {
-  final List<MacmahonPlayer?> draftPlayers; final int totalRounds; final BracketStyle style; final void Function(int index, MacmahonPlayer player)? onPlayerDropped; final void Function(int index)? onPlayerRemoved;
-  static const double kW = 120.0, kH = 36.0, kVGap = 40.0, kHGap = 12.0;
+  final List<MacmahonPlayer?> draftPlayers;
+  final int totalRounds;
+  final BracketStyle style;
+  final void Function(int index, MacmahonPlayer player)? onPlayerDropped;
+  final void Function(int index)? onPlayerRemoved;
+  static const double kW = 180.0, kH = 40.0, leafSlotW = 240.0, kVGap = 80.0;
   const _DraftPreviewBracket({required this.draftPlayers, required this.totalRounds, required this.style, this.onPlayerDropped, this.onPlayerRemoved});
   @override
   Widget build(BuildContext context) {
@@ -721,17 +1169,18 @@ class _DraftPreviewBracket extends StatelessWidget {
     final bool isCompact = !isClassic && !isClassicVertical;
     
     double cx(int level, int m) {
-      if (isClassic) return level * (kW + 60.0) + 50;
-      final slots = math.pow(2, level).toDouble();
-      final unitW = isCompact ? (kW + 20.0) : (kW + 20.0);
-      return (m * slots + slots / 2.0) * unitW + 50;
+      if (isClassic) return level * (kW + 80.0) + 100;
+      final step = math.pow(2, level).toDouble();
+      if (isClassicVertical) return (m * step + (step - 1) / 2.0) * (kW + 40.0) + 100;
+      return (m * step + (step - 1) / 2.0) * leafSlotW + 100;
     }
     double cy(int level, int m) {
       if (isClassic) { 
         final step = math.pow(2, level).toDouble(); 
-        return (m * step + (step - 1) / 2.0) * (kH + 20.0) + 50; 
+        return (m * step + (step - 1) / 2.0) * (kH * 2 + 20.0) + 120;
       }
-      return (totalLevels - 1 - level) * (kH * 2 + kVGap) + 80; // Bottom-to-Top
+      if (isClassicVertical) return (totalLevels - 1 - level) * (kH + 60.0) + 120;
+      return (totalLevels - 1 - level) * (kH * 2 + kVGap) + 120;
     }
 
     for (int level = 0; level < totalLevels; level++) {
@@ -803,8 +1252,8 @@ class _DraftPreviewBracket extends StatelessWidget {
       }
     }
     
-    final totalW = isClassic ? cx(n, 0) + kW + 100 : (kW + 20.0) * math.pow(2, isCompact ? n - 1 : n) + 100;
-    final totalH = isClassic ? cy(0, expectedLeafs - 1) + kH + 100 : totalLevels * (kH * 2 + kVGap) + 100;
+    final totalW = isClassic ? cx(n, 0) + kW + 200 : cx(0, expectedLeafs - 1) + kW + 200;
+    final totalH = (isClassic ? cy(0, expectedLeafs - 1) : cy(0, 0)) + kH * 2 + 200;
     return SizedBox(width: totalW, height: totalH, child: Stack(clipBehavior: Clip.none, children: [CustomPaint(size: Size(totalW, totalH), painter: _BracketPainter(lines: lines, color: Colors.blue.shade700, strokeWidth: 2.0)), ...cards]));
   }
 }

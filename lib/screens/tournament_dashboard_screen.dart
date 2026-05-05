@@ -21,6 +21,48 @@ class TournamentDashboardScreen extends ConsumerWidget {
             state.format == TournamentFormat.leagueAndKnockout) &&
         state.stage == 1;
 
+    bool isGroupAssignmentNeeded() {
+      final currentData = state.currentSectionData;
+      if (currentData.groupCount <= 1) return false;
+      final players = state.currentSectionPlayers;
+      if (players.isEmpty) return false;
+      final groupIds = players.map((p) => p.groupId).where((id) => id != null).toSet();
+      return groupIds.length < currentData.groupCount || players.any((p) => p.groupId == null);
+    }
+
+    void showGroupWarning(int index) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('조 편성 필요'),
+            ],
+          ),
+          content: Text('현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => StandingsScreen(initialIndex: index)));
+              },
+              child: const Text('그냥 진행', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()));
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+              child: const Text('조 편성하기'),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -186,14 +228,20 @@ class TournamentDashboardScreen extends ConsumerWidget {
                                     : '공식 기록지',
                                 color: AppTheme.primary,
                                 onTap: state.currentSectionPlayers.isNotEmpty
-                                    ? () => Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => const StandingsScreen(
-                                            initialIndex: 1,
-                                          ),
-                                        ),
-                                      )
+                                    ? () {
+                                        if (isGroupAssignmentNeeded()) {
+                                          showGroupWarning(1);
+                                        } else {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => const StandingsScreen(
+                                                initialIndex: 1,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      }
                                     : null,
                               ),
                             _GridMenuButton(
@@ -915,23 +963,61 @@ class _CallToActionCard extends ConsumerWidget {
             '${state.selectedSection}: 선수 $playersCount명 등록 완료. (권장: ${recommended}라운드)',
         buttonText: isKnockout ? '토너먼트 대진표 진행' : (isLeague ? '리그전 시작 / 결과 입력' : '${state.currentRound}라운드 페어링 생성'),
         onTap: () async {
-          if (isLeague) {
-            if (state.currentPairing == null) {
-              await ref.read(macmahonProvider.notifier).generatePairing();
-            }
-            if (context.mounted) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const StandingsScreen(initialIndex: 1),
+          bool isGroupAssignmentNeeded() {
+            final currentData = state.currentSectionData;
+            if (currentData.groupCount <= 1) return false;
+            final players = state.currentSectionPlayers;
+            if (players.isEmpty) return false;
+            final groupIds = players.map((p) => p.groupId).where((id) => id != null).toSet();
+            return groupIds.length < currentData.groupCount || players.any((p) => p.groupId == null);
+          }
+
+          void showGroupWarning(int index) {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('조 편성 필요'),
+                  ],
                 ),
-              );
+                content: Text('현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _navigateToStandings(context, index);
+                    },
+                    child: const Text('그냥 진행', style: TextStyle(color: Colors.grey)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()));
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                    child: const Text('조 편성하기'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (isLeague) {
+            if (isGroupAssignmentNeeded()) {
+              showGroupWarning(1);
+            } else {
+              if (state.currentPairing == null) {
+                await ref.read(macmahonProvider.notifier).generatePairing();
+              }
+              if (context.mounted) {
+                _navigateToStandings(context, 1);
+              }
             }
           } else if (isKnockout) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StandingsScreen(initialIndex: 1)),
-            );
+            _navigateToStandings(context, 1);
           } else {
             Navigator.push(
               context,
@@ -948,13 +1034,73 @@ class _CallToActionCard extends ConsumerWidget {
       title:
           '${state.selectedSection}: 현재 ${state.currentRound}라운드가 진행 중입니다. (권장: ${recommended}라운드)',
       buttonText: isKnockout ? '토너먼트 대진표 확인' : (isLeague ? '리그표 확인 / 결과 입력' : '결과 입력 / 페어링 보기'),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => (isLeague || isKnockout)
-              ? const StandingsScreen(initialIndex: 1)
-              : const PairingScreen(),
-        ),
+      onTap: () {
+        if (isLeague) {
+          bool isGroupAssignmentNeeded() {
+            final currentData = state.currentSectionData;
+            if (currentData.groupCount <= 1) return false;
+            final players = state.currentSectionPlayers;
+            if (players.isEmpty) return false;
+            final groupIds = players.map((p) => p.groupId).where((id) => id != null).toSet();
+            return groupIds.length < currentData.groupCount || players.any((p) => p.groupId == null);
+          }
+
+          void showGroupWarning(int index) {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text('조 편성 필요'),
+                  ],
+                ),
+                content: Text('현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?'),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _navigateToStandings(context, index);
+                    },
+                    child: const Text('그냥 진행', style: TextStyle(color: Colors.grey)),
+                  ),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()));
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                    child: const Text('조 편성하기'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          if (isGroupAssignmentNeeded()) {
+            showGroupWarning(1);
+            return;
+          }
+        }
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => (isLeague || isKnockout)
+                ? const StandingsScreen(initialIndex: 1)
+                : const PairingScreen(),
+          ),
+        );
+      },
+    );
+  }
+
+  void _navigateToStandings(BuildContext context, int index) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StandingsScreen(initialIndex: index),
       ),
     );
   }
