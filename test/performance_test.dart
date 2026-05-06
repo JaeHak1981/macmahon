@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/models/macmahon_player.dart';
-import 'package:macmahon/providers/macmahon_provider.dart';
-import 'package:macmahon/utils/macmahon_utils.dart';
+import 'package:macmahon/features/tournament/domain/entities/macmahon_player.dart';
+import 'package:macmahon/features/tournament/presentation/providers/macmahon_provider.dart';
+import 'package:macmahon/core/utils/macmahon_utils.dart';
 
 void main() {
   group('성능 및 무한 루프 검증 테스트', () {

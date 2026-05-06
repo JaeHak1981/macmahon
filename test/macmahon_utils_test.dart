@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/utils/macmahon_utils.dart';
+import 'package:macmahon/core/utils/macmahon_utils.dart';
 
 void main() {
   group('MacmahonUtils - calculateRecommendedRounds', () {

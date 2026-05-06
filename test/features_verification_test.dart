@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/models/macmahon_player.dart';
-import 'package:macmahon/models/macmahon_pair.dart';
+import 'package:macmahon/features/tournament/domain/entities/macmahon_player.dart';
+import 'package:macmahon/features/tournament/domain/entities/macmahon_pair.dart';
 import 'dart:math' as math;
 
 void main() {

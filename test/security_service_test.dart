@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/services/security_service.dart';
+import 'package:macmahon/core/services/security_service.dart';
 
 void main() {
   group('SecurityService Tests', () {

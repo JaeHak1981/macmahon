@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/models/macmahon_player.dart';
-import 'package:macmahon/services/cost_matrix_builder.dart';
-import 'package:macmahon/services/pairing_service.dart';
+import 'package:macmahon/features/tournament/domain/entities/macmahon_player.dart';
+import 'package:macmahon/core/services/cost_matrix_builder.dart';
+import 'package:macmahon/core/services/pairing_service.dart';
 
 void main() {
   group('CostMatrixBuilder 테스트', () {
