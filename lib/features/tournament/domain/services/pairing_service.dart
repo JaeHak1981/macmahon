@@ -137,29 +137,37 @@ class PairingService {
     if (players.isEmpty) return PairingResult(pairs: [], round: round);
 
     final List<MacmahonPlayer> sorted = List.from(players);
-    sorted.sort((a, b) => b.currentMms.compareTo(a.currentMms));
+    // 1라운드일 때만 실력순(MMS)으로 정렬하여 시드 배정
+    // 2라운드부터는 이전 라운드 승자 순서를 유지해야 대진표가 꼬이지 않음
+    if (round == 1) {
+      sorted.sort((a, b) => b.currentMms.compareTo(a.currentMms));
+      
+      // 시드 배정 (1위 vs 8위 식의 배치를 원한다면 여기서 순서를 섞어줘야 함)
+      // 현재 브라켓 UI는 순차적 배치를 가정하므로, 일단 그대로 둡니다.
+    }
 
     int n = sorted.length;
     MacmahonPlayer? byePlayer;
 
     if (n % 2 != 0) {
+      // 인접 매칭을 위해 홀수인 경우 마지막 선수를 부전승 처리
       byePlayer = sorted.last;
     }
 
-    final List<MacmahonPlayer> remaining = byePlayer != null 
-        ? sorted.sublist(0, n - 1) 
-        : sorted;
+    final List<MacmahonPlayer> remaining =
+        byePlayer != null ? sorted.sublist(0, n - 1) : sorted;
 
     final List<MacmahonPair> pairs = [];
-    final int matchesCount = remaining.length ~/ 2;
-    for (int i = 0; i < matchesCount; i++) {
+
+    // 인접 매칭: 0-1, 2-3, 4-5... 순서로 대진 생성
+    for (int i = 0; i < remaining.length; i += 2) {
       final p1 = remaining[i];
-      final p2 = remaining[remaining.length - 1 - i];
-      
+      final p2 = remaining[i + 1];
+
       // 부전승(Dummy) 체크 및 자동 결과 처리
       final bool isP1Dummy = p1.id == _kDummyId || p1.id.startsWith('bye_') || p1.name == '(부전)';
       final bool isP2Dummy = p2.id == _kDummyId || p2.id.startsWith('bye_') || p2.name == '(부전)';
-      
+
       if (isP1Dummy || isP2Dummy) {
         pairs.add(MacmahonPair(
           black: p1,

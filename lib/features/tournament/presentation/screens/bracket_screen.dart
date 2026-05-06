@@ -98,7 +98,7 @@ class _BracketScreenState extends ConsumerState<BracketScreen> {
 
     final knockoutHistory = state.history.where(isKnockoutMatch).toList();
     final currentPairing = state.currentPairing;
-    final currentIsKnockout = currentData.stage == 2 && currentPairing != null;
+    final currentIsKnockout = (currentData.stage == 2 || state.format == TournamentFormat.knockout) && currentPairing != null;
 
     final qCount = qualifiers.isNotEmpty
         ? qualifiers.length

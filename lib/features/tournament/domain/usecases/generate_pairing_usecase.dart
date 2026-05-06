@@ -36,8 +36,12 @@ class GeneratePairingUseCase {
           result = _pairingService.generateAllLeagueMatches(players: sectionPlayers);
         }
       } else if (format == TournamentFormat.knockout || (format == TournamentFormat.leagueAndKnockout && currentData.stage == 2)) {
-        // 본선 생존자 계산 로직 (여기에 포함하거나 다른 UseCase로 분리 가능)
-        final survivors = _getKnockoutSurvivors(sectionPlayers, currentData.history);
+        // 본선 생존자 계산 로직
+        final survivors = _getKnockoutSurvivors(
+          sectionPlayers, 
+          currentData.history, 
+          currentData.knockoutQualifiers
+        );
         result = _pairingService.generateKnockoutPairing(players: survivors, round: currentRound);
       } else {
         if (currentRound == 1 && isSequentialForR1) {
@@ -109,19 +113,44 @@ class GeneratePairingUseCase {
     return playerMap.values.toList();
   }
 
-  /// 본선 생존자 추출 (Provider에 있던 로직 이관)
-  List<MacmahonPlayer> _getKnockoutSurvivors(List<MacmahonPlayer> players, List<PairingResult> history) {
-    if (history.isEmpty) return players;
-    final lastRound = history.last;
+  /// 본선 생존자 추출 (Stage 2 전용)
+  List<MacmahonPlayer> _getKnockoutSurvivors(
+    List<MacmahonPlayer> players, 
+    List<PairingResult> history, 
+    List<String> knockoutQualifiers
+  ) {
+    // 1. 본선 진출자 명단이 비어있지 않다면 필터링 기준이 됨
+    final survivorIds = <String>{};
+    
+    // 2. 히스토리에서 본선 경기만 필터링
+    final List<PairingResult> knockoutHistory = history.where((r) {
+      if (knockoutQualifiers.isEmpty) return true;
+      // 모든 선수가 진출자 명단에 있는 라운드만 본선으로 간주
+      return r.pairs.every((p) => 
+        knockoutQualifiers.contains(p.black.id) && knockoutQualifiers.contains(p.white.id));
+    }).toList();
+
+    if (knockoutHistory.isEmpty) {
+      // 본선 진행 기록이 없으면 진출자 명단 전원 반환
+      if (knockoutQualifiers.isNotEmpty) {
+        return players.where((p) => knockoutQualifiers.contains(p.id)).toList();
+      }
+      return players;
+    }
+
+    // 3. 마지막 본선 라운드에서 승자 추출
+    final lastRound = knockoutHistory.last;
     final survivors = <MacmahonPlayer>[];
 
     for (final pair in lastRound.pairs) {
       if (pair.winnerId != null) {
-        survivors.add(players.firstWhere((p) => p.id == pair.winnerId));
+        final winner = players.where((p) => p.id == pair.winnerId).toList();
+        if (winner.isNotEmpty) survivors.add(winner.first);
       }
     }
     for (final bye in lastRound.byePlayers) {
-      survivors.add(players.firstWhere((p) => p.id == bye.id));
+      final byePlayer = players.where((p) => p.id == bye.id).toList();
+      if (byePlayer.isNotEmpty) survivors.add(byePlayer.first);
     }
     return survivors;
   }

@@ -160,6 +160,9 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
       groupCount: groupCount,
       qualifiersPerGroup: qualifiersPerGroup,
       useHeadToHead: useHeadToHead,
+      stage: (format == TournamentFormat.knockout) 
+          ? 2 
+          : (format == TournamentFormat.league ? 1 : state.currentSectionData.stage),
     );
     state = state.copyWith(sectionData: newSectionData);
     saveCurrentTournament();
