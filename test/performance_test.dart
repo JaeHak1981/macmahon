@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/features/tournament/domain/entities/macmahon_player.dart';
-import 'package:macmahon/features/tournament/presentation/providers/macmahon_provider.dart';
+import 'package:macmahon/features/tournament/domain/entities/macmahon_entities.dart';
+import 'package:macmahon/core/constants/tournament_enums.dart';
 import 'package:macmahon/core/utils/macmahon_utils.dart';
 
 void main() {
@@ -17,14 +17,18 @@ void main() {
 
       // 2. 순환 승패 관계 강제 설정 (A->B, B->C, C->A)
       // p0 이 p1 을 이김, p1 이 p2 를 이김, p2 가 p0 을 이김
-      players[0].defeatedOpponents.add('p1');
-      players[1].opponents.add('p0');
-      
-      players[1].defeatedOpponents.add('p2');
-      players[2].opponents.add('p1');
-      
-      players[2].defeatedOpponents.add('p0');
-      players[0].opponents.add('p2');
+      players[0] = players[0].copyWith(
+        defeatedOpponents: {...players[0].defeatedOpponents, 'p1'},
+        opponents: {...players[0].opponents, 'p2'},
+      );
+      players[1] = players[1].copyWith(
+        opponents: {...players[1].opponents, 'p0'},
+        defeatedOpponents: {...players[1].defeatedOpponents, 'p2'},
+      );
+      players[2] = players[2].copyWith(
+        opponents: {...players[2].opponents, 'p1'},
+        defeatedOpponents: {...players[2].defeatedOpponents, 'p0'},
+      );
 
       final sorted = <MacmahonPlayer>[];
       final ranks = <String, int>{};
@@ -59,12 +63,16 @@ void main() {
 
       // 임의로 승리 기록 추가
       for (int i = 0; i < 100; i++) {
+        final List<String> currentOpponents = [];
         for (int j = 0; j < 5; j++) {
           final opponentIdx = (i + j + 1) % 100;
-          players[i].defeatedOpponents.add('p$opponentIdx');
-          players[i].wins++;
-          players[i].currentMms += 1.0;
+          currentOpponents.add('p$opponentIdx');
         }
+        players[i] = players[i].copyWith(
+          defeatedOpponents: {...players[i].defeatedOpponents, ...currentOpponents},
+          wins: players[i].wins + 5,
+          currentMms: players[i].currentMms + 5.0,
+        );
       }
 
       final sorted = <MacmahonPlayer>[];

@@ -1,9 +1,7 @@
-import '../../domain/entities/tournament_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/macmahon_provider.dart';
-import '../../domain/entities/macmahon_entities.dart';
 
 class GroupAssignmentScreen extends ConsumerWidget {
   const GroupAssignmentScreen({super.key});

@@ -25,8 +25,7 @@ class MacmahonUtils {
     // 2. Top Bar 기준 라운드 (Top Bar 내에서 우승자를 가리기 위한 최소 라운드)
     int roundsByTopBar = (math.log(topBarCount) / math.log(2)).ceil();
     
-    // 3. 두 기준 중 더 긴 라운드를 선택하여 전체 대회의 질을 보장
-    return math.max(roundsByTotal, roundsByTopBar);
+    return roundsByTopBar;
   }
 
   /// 순환 동률(3-way tie 등)을 올바르게 처리하며 공동 순위까지 계산하여 정렬된 선수 목록과 순위 맵을 생성합니다.

@@ -1,10 +1,8 @@
-import '../../domain/entities/tournament_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/macmahon_entities.dart';
 import '../providers/macmahon_provider.dart';
 import '../../../../core/utils/macmahon_utils.dart';
-import 'pairing_screen.dart';
 import 'bracket_screen.dart';
 
 class KnockoutSelectionScreen extends ConsumerStatefulWidget {

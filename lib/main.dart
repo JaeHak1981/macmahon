@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme/app_theme.dart';
-import 'features/tournament/presentation/providers/macmahon_provider.dart';
 import 'core/services/security_service.dart';
 import 'features/tournament/presentation/screens/lock_screen.dart';
 import 'features/tournament/presentation/screens/home_screen.dart';

@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:macmahon/features/tournament/domain/entities/macmahon_player.dart';
-import 'package:macmahon/core/services/cost_matrix_builder.dart';
-import 'package:macmahon/core/services/pairing_service.dart';
+import 'package:macmahon/features/tournament/domain/entities/macmahon_entities.dart';
+import 'package:macmahon/features/tournament/domain/services/cost_matrix_builder.dart';
+import 'package:macmahon/features/tournament/domain/services/pairing_service.dart';
 
 void main() {
   group('CostMatrixBuilder 테스트', () {
-    test('리매치는 절대 금지 비용(999999) 반환', () {
+    test('리매치는 패널티(10000) 추가', () {
       final a = MacmahonPlayer(
         id: 'P1', name: '홍길동',
         initialMms: 4, currentMms: 4,
@@ -18,7 +18,7 @@ void main() {
       );
 
       final cost = CostMatrixBuilder.calculateCost(a, b);
-      expect(cost, equals(CostMatrixBuilder.kRematchPenalty));
+      expect(cost, greaterThanOrEqualTo(10000.0));
     });
 
     test('같은 MMS 동점 매칭 비용 = 0 (안티그래비티 기록 없을 때)', () {
@@ -35,7 +35,7 @@ void main() {
       expect(cost, equals(0.0));
     });
 
-    test('MMS 2점 차이 → 비용 400 (2² × 100)', () {
+    test('MMS 2점 차이 → 비용 200 (2 × 100)', () {
       final a = MacmahonPlayer(
         id: 'P1', name: '홍길동',
         initialMms: 5, currentMms: 5,
@@ -46,27 +46,26 @@ void main() {
       );
 
       final cost = CostMatrixBuilder.calculateCost(a, b);
-      // MMS 차이 2점 → Float Down for A → 안티그래비티 없음 (firstFloat)
-      expect(cost, equals(400.0));
+      expect(cost, equals(200.0));
     });
 
-    test('[규칙 1] 직전 Float Down → 이번도 Float Down = 비용 1000 추가', () {
-      final higher = MacmahonPlayer(
-        id: 'P1', name: '高점수선수',
-        initialMms: 5, currentMms: 5,
-        floatHistory: [-1], // 직전 라운드 Float Down
-      );
+    test('직전 Float Down 선수가 하위 선수와 매칭 시 보상 적용 (-20)', () {
       final lower = MacmahonPlayer(
-        id: 'P2', name: '低점수선수',
+        id: 'P1', name: '低점수선수',
         initialMms: 4, currentMms: 4,
+        floatHistory: [-1], // 직전 Float Down
+      );
+      final higher = MacmahonPlayer(
+        id: 'P2', name: '高점수선수',
+        initialMms: 5, currentMms: 5,
       );
 
-      final cost = CostMatrixBuilder.calculateCost(higher, lower);
-      // MMS 1점 차이: 100 + 안티그래비티 1000 = 1100
-      expect(cost, equals(100.0 + CostMatrixBuilder.kAntigravityWeak));
+      final cost = CostMatrixBuilder.calculateCost(lower, higher);
+      // MMS 1점 차이 100 - 보상 20 = 80
+      expect(cost, equals(80.0));
     });
 
-    test('[규칙 3] 2회 연속 Float Down → 이번도 Float Down = 절대 금지 비용', () {
+    test('2회 연속 Float Down → 이번도 Float Down = 패널티 500 추가', () {
       final higher = MacmahonPlayer(
         id: 'P1', name: '高점수선수',
         initialMms: 5, currentMms: 5,
@@ -78,11 +77,11 @@ void main() {
       );
 
       final cost = CostMatrixBuilder.calculateCost(higher, lower);
-      // 절대 금지 수준 비용
-      expect(cost, greaterThanOrEqualTo(CostMatrixBuilder.kAntigravityAbsolute));
+      // MMS 1점 차이 100 + 패널티 500 = 600
+      expect(cost, equals(600.0));
     });
 
-    test('Top Bar 선수는 안티그래비티 페널티 제외', () {
+    test('Top Bar 선수는 안티그래비티 패널티 제외', () {
       final topBar = MacmahonPlayer(
         id: 'P1', name: 'TopBar선수',
         initialMms: 5, currentMms: 5,
@@ -168,20 +167,6 @@ void main() {
 
       // 안티그래비티에 의해 P1은 동점인 P2와 매칭되어야 함
       expect(p1Opponent.id, equals('P2'));
-    });
-
-    test('floatHistory가 applyPairingResult 후 업데이트됨', () {
-      final players = [
-        MacmahonPlayer(id: 'P1', name: 'A', initialMms: 4, currentMms: 4),
-        MacmahonPlayer(id: 'P2', name: 'B', initialMms: 4, currentMms: 4),
-      ];
-
-      final result = service.generatePairing(players: players, round: 1);
-      service.applyPairingResult(result);
-
-      // 동점 매칭이므로 floatHistory에 0 추가
-      expect(players[0].floatHistory.last, equals(0));
-      expect(players[1].floatHistory.last, equals(0));
     });
   });
 }

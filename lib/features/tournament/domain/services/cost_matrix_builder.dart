@@ -28,10 +28,10 @@ class CostMatrixBuilder {
     }
 
     // 4. 연속 플로팅 방지 (연속 Float Down 패널티)
-    if (a.isConsecutiveFloatDown && a.currentMms > b.currentMms) {
+    if (a.isConsecutiveFloatDown && a.currentMms > b.currentMms && !a.isTopBar) {
       cost += 500;
     }
-    if (b.isConsecutiveFloatDown && b.currentMms > a.currentMms) {
+    if (b.isConsecutiveFloatDown && b.currentMms > a.currentMms && !b.isTopBar) {
       cost += 500;
     }
 
