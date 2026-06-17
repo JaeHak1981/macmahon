@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/macmahon_entities.dart';
 import '../providers/macmahon_provider.dart';
+import '../providers/history_provider.dart';
 
 class PairingScreen extends ConsumerStatefulWidget {
   const PairingScreen({super.key});
@@ -187,23 +188,57 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: state.currentPairs.every((p) => p.isResultEntered)
-                          ? () {
-                              notifier.advanceRound();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('라운드가 종료되었습니다.')),
-                              );
-                            }
-                          : null,
-                      icon: const Icon(Icons.check_circle),
-                      label: Text(state.currentPairs.every((p) => p.isResultEntered)
-                          ? '라운드 종료 및 다음 대진'
-                          : '모든 결과를 입력하세요 (${state.currentPairs.where((p) => p.isResultEntered).length}/${state.currentPairs.length})'),
-                    ),
-                  ),
+                  child: state.currentPairs.every((p) => p.isResultEntered)
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  notifier.advanceRound();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('라운드가 종료되었습니다. 다음 대진을 생성해주세요.')),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.surface,
+                                  foregroundColor: AppTheme.primary,
+                                  side: const BorderSide(color: AppTheme.primary),
+                                ),
+                                icon: const Icon(Icons.navigate_next),
+                                label: const Text('다음 라운드 준비'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  notifier.advanceRound();
+                                  notifier.toggleTournamentStatus(); // 대회 종료 상태로 전환
+                                  ref.read(tournamentHistoryProvider.notifier).loadHistory();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('대회가 종료(결과 확정) 되었습니다.')),
+                                  );
+                                  Navigator.pop(context); // 이전 화면으로 돌아감
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(Icons.emoji_events),
+                                label: const Text('대회 종료'),
+                              ),
+                            ),
+                          ],
+                        )
+                      : SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: null,
+                            icon: const Icon(Icons.check_circle),
+                            label: Text(
+                                '모든 결과를 입력하세요 (${state.currentPairs.where((p) => p.isResultEntered).length}/${state.currentPairs.length})'),
+                          ),
+                        ),
                 ),
               ),
           ],

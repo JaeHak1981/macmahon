@@ -79,21 +79,40 @@ class MacmahonUtils {
           }
         }
 
-        // 3차: 다중 조건 정렬 (내부 승수 -> SODOS -> SOS -> 누진점수 -> 초기 서열 -> 총 승수)
+        // 3차: 다중 조건 정렬
         tiedPlayers.sort((a, b) {
-          final wA = internalWins[a.id]!;
-          final wB = internalWins[b.id]!;
-          if (wA != wB) return wB.compareTo(wA);
-
-          final sodosCmp = b.sodos.compareTo(a.sodos);
-          if (sodosCmp != 0) return sodosCmp;
-
           if (!isLeague) {
-            final sosCmp = b.sos.compareTo(a.sos);
-            if (sosCmp != 0) return sosCmp;
-
+            // 맥마흔 & 스위스리그: 선승(누진) -> 승자승(1:1 및 다자간) -> SODOS -> SOS
             final cumCmp = b.cumulativeScore.compareTo(a.cumulativeScore);
             if (cumCmp != 0) return cumCmp;
+
+            if (useHeadToHead) {
+              if (a.defeatedOpponents.contains(b.id)) return -1;
+              if (b.defeatedOpponents.contains(a.id)) return 1;
+            }
+
+            final wA = internalWins[a.id]!;
+            final wB = internalWins[b.id]!;
+            if (wA != wB) return wB.compareTo(wA);
+
+            final sodosCmp = b.sodos.compareTo(a.sodos);
+            if (sodosCmp != 0) return sodosCmp;
+
+            final sosCmp = b.sos.compareTo(a.sos);
+            if (sosCmp != 0) return sosCmp;
+          } else {
+            // 풀리그: 승자승 -> 내부 승수 -> SODOS
+            if (useHeadToHead) {
+              if (a.defeatedOpponents.contains(b.id)) return -1;
+              if (b.defeatedOpponents.contains(a.id)) return 1;
+            }
+
+            final wA = internalWins[a.id]!;
+            final wB = internalWins[b.id]!;
+            if (wA != wB) return wB.compareTo(wA);
+
+            final sodosCmp = b.sodos.compareTo(a.sodos);
+            if (sodosCmp != 0) return sodosCmp;
           }
 
           final initCmp = b.initialMms.compareTo(a.initialMms);

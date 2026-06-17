@@ -10,6 +10,7 @@ import '../providers/macmahon_provider.dart';
 import '../../../../core/services/export_service.dart';
 import '../../../../core/utils/macmahon_utils.dart';
 import 'package:flutter/services.dart';
+import '../providers/history_provider.dart';
 import 'knockout_selection_screen.dart';
 import 'bracket_screen.dart';
 
@@ -366,39 +367,54 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
     final title = isLastRound ? '대회 종료' : '라운드 종료 및 다음 대진 생성';
     final content = isLastRound
         ? '마지막 라운드입니다. 대회를 종료하고 최종 순위를 확정하시겠습니까?'
-        : '현재 라운드를 종료하고 다음 라운드 대진을 자동으로 생성하시겠습니까?';
+        : '현재 라운드를 종료하고 다음 라운드 대진을 자동으로 생성하시겠습니까?\n\n(더 이상 라운드를 진행하지 않고 여기서 대회를 종료할 수도 있습니다.)';
 
-    final confirmed = await showDialog<bool>(
+    final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(title),
         content: Text(content),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
+              onPressed: () => Navigator.pop(ctx, 0),
               child: const Text('취소')),
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
+          if (!isLastRound)
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, 2),
+                child: const Text('대회 종료', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold))),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 1),
               child: Text(isLastRound ? '종료 및 확정' : '종료 후 대진 생성')),
         ],
       ),
     );
 
-    if (confirmed == true) {
+    if (result != null && result > 0) {
       final notifier = ref.read(macmahonProvider.notifier);
       // 1. 라운드 종료
       notifier.advanceRound();
 
-      // 2. 마지막 라운드가 아니면 즉시 다음 대진 생성
-      if (!isLastRound) {
-        await notifier.generatePairing();
-      }
+      if (result == 2) {
+        // 조기 종료의 경우
+        notifier.toggleTournamentStatus(); // 대회를 종료 상태로 전환
+        ref.read(tournamentHistoryProvider.notifier).loadHistory();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('대회가 종료되었습니다. 최종 순위가 확정되었습니다.')),
+          );
+        }
+      } else {
+        // 2. 마지막 라운드가 아니면 즉시 다음 대진 생성
+        if (!isLastRound) {
+          await notifier.generatePairing();
+        }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(isLastRound ? '대회가 종료되었습니다.' : '다음 라운드 대진이 생성되었습니다.')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(isLastRound ? '대회가 종료되었습니다.' : '다음 라운드 대진이 생성되었습니다.')),
+          );
+        }
       }
     }
   }
@@ -514,21 +530,36 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
           internalWins[p.id] = wins;
         }
 
-        // 3차: 다중 조건 정렬 (내부 승수 -> SODOS -> SOS -> 누진점수 -> 초기 서열 -> 총 승수)
+        // 3차: 다중 조건 정렬
         tiedPlayers.sort((a, b) {
-          final wA = internalWins[a.id]!;
-          final wB = internalWins[b.id]!;
-          if (wA != wB) return wB.compareTo(wA);
-
-          final sodosCmp = b.sodos.compareTo(a.sodos);
-          if (sodosCmp != 0) return sodosCmp;
-
           if (!isLeague) {
-            final sosCmp = b.sos.compareTo(a.sos);
-            if (sosCmp != 0) return sosCmp;
-
+            // 맥마흔 & 스위스리그: 선승(누진) -> 승자승(1:1 및 다자간) -> SODOS -> SOS
             final cumCmp = b.cumulativeScore.compareTo(a.cumulativeScore);
             if (cumCmp != 0) return cumCmp;
+
+            if (a.defeatedOpponents.contains(b.id)) return -1;
+            if (b.defeatedOpponents.contains(a.id)) return 1;
+
+            final wA = internalWins[a.id]!;
+            final wB = internalWins[b.id]!;
+            if (wA != wB) return wB.compareTo(wA);
+
+            final sodosCmp = b.sodos.compareTo(a.sodos);
+            if (sodosCmp != 0) return sodosCmp;
+
+            final sosCmp = b.sos.compareTo(a.sos);
+            if (sosCmp != 0) return sosCmp;
+          } else {
+            // 풀리그: 승자승 -> 내부 승수 -> SODOS
+            if (a.defeatedOpponents.contains(b.id)) return -1;
+            if (b.defeatedOpponents.contains(a.id)) return 1;
+
+            final wA = internalWins[a.id]!;
+            final wB = internalWins[b.id]!;
+            if (wA != wB) return wB.compareTo(wA);
+
+            final sodosCmp = b.sodos.compareTo(a.sodos);
+            if (sodosCmp != 0) return sodosCmp;
           }
 
           final initCmp = b.initialMms.compareTo(a.initialMms);
@@ -748,7 +779,19 @@ class _RankingsTab extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: const Row(
               children: [
-                SizedBox(width: 40),
+                SizedBox(
+                  width: 40,
+                  child: Center(
+                    child: Text(
+                      '순위',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
                 SizedBox(
                   width: 90,
                   child: Text(
