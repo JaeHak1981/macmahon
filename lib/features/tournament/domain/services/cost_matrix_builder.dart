@@ -8,7 +8,9 @@ class CostMatrixBuilder {
       if (realPlayer.opponents.contains('__dummy__')) {
         return 100000;
       }
-      return 0;
+      // 부전승(더미와의 매칭) 시 점수가 높을수록 매칭 비용을 비싸게 설정하여
+      // 헝가리안 알고리즘이 점수가 가장 낮은 선수에게 우선적으로 부전승을 주도록 유도
+      return realPlayer.currentMms * 1000;
     }
 
     double cost = 0;

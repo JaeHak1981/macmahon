@@ -14,72 +14,98 @@ class PairingService {
     final List<MacmahonPlayer> workingList = List.from(players);
     workingList.sort((a, b) => b.currentMms.compareTo(a.currentMms));
 
+    // 1. 부전승(BYE) 사전 분리 로직
+    MacmahonPlayer? byePlayer;
     if (workingList.length % 2 != 0) {
-      final dummy = _createDummyPlayer(workingList);
-      workingList.add(dummy);
-      workingList.sort((a, b) => b.currentMms.compareTo(a.currentMms));
+      byePlayer = _findByePlayer(workingList);
+      workingList.removeWhere((p) => p.id == byePlayer!.id);
     }
 
-    final int n = workingList.length;
-    final int m = n ~/ 2;
+    if (workingList.isEmpty) {
+      return PairingResult(
+        pairs: [],
+        round: round,
+        byePlayers: byePlayer != null ? [byePlayer] : [],
+      );
+    }
 
+    // 2. 다중 이분 분할 (Fallback Splits) 매칭
+    // 1차 시도 (Fold 분할)
+    List<MacmahonPair> bestMatches = _attemptMatching(workingList, 'fold');
+    double bestCost = bestMatches.fold(0.0, (sum, p) => sum + p.cost);
+
+    // 10000점(재대결 패널티) 이상일 경우 2차 시도
+    if (bestCost >= 10000) {
+      // 2차 시도 (Slide 분할)
+      List<MacmahonPair> slideMatches = _attemptMatching(workingList, 'slide');
+      double slideCost = slideMatches.fold(0.0, (sum, p) => sum + p.cost);
+
+      if (slideCost < bestCost) {
+        bestMatches = slideMatches;
+      }
+    }
+
+    return PairingResult(
+      pairs: bestMatches,
+      round: round,
+      byePlayers: byePlayer != null ? [byePlayer] : [],
+    );
+  }
+
+  MacmahonPlayer _findByePlayer(List<MacmahonPlayer> players) {
+    // 1. 부전승 후보: 이미 부전승 경험이 있는 선수 제외
+    final candidates = players.where((p) => !p.opponents.contains('__dummy__')).toList();
+    
+    // 만약 전원이 부전승을 해봤다면 전체 선수를 후보로 둠 (방어 코드)
+    final validCandidates = candidates.isNotEmpty ? candidates : List<MacmahonPlayer>.from(players);
+
+    // 2. 점수(MMS) 오름차순(최하위 우선), 동점 시 SOS 오름차순 정렬
+    validCandidates.sort((a, b) {
+      int mmsComp = a.currentMms.compareTo(b.currentMms);
+      if (mmsComp != 0) return mmsComp;
+      return a.sos.compareTo(b.sos);
+    });
+
+    return validCandidates.first; // 가장 점수가 낮고 부전승을 안해본 선수
+  }
+
+  List<MacmahonPair> _attemptMatching(List<MacmahonPlayer> players, String splitType) {
+    final int m = players.length ~/ 2;
     final List<MacmahonPlayer> leftSide = [];
     final List<MacmahonPlayer> rightSide = [];
-    for (int i = 0; i < n; i++) {
-      if (i % 2 == 0) {
-        leftSide.add(workingList[i]);
-      } else {
-        rightSide.add(workingList[i]);
+
+    if (splitType == 'fold') {
+      for (int i = 0; i < players.length; i++) {
+        if (i % 2 == 0) leftSide.add(players[i]);
+        else rightSide.add(players[i]);
+      }
+    } else if (splitType == 'slide') {
+      for (int i = 0; i < m; i++) {
+        leftSide.add(players[i]);
+        rightSide.add(players[m + i]);
       }
     }
 
     final costMatrix = List.generate(
-      m,
-      (i) => List.generate(m, (j) => CostMatrixBuilder.calculateCost(leftSide[i], rightSide[j])),
+      m, (i) => List.generate(m, (j) => CostMatrixBuilder.calculateCost(leftSide[i], rightSide[j]))
     );
-
     final matchedIndices = HungarianSolver.solve(costMatrix);
-
+    
     final List<MacmahonPair> pairs = [];
-    MacmahonPlayer? byePlayer;
-
     for (final pairIdx in matchedIndices) {
-      final i = pairIdx.$1;
-      final j = pairIdx.$2;
-      final playerA = leftSide[i];
-      final playerB = rightSide[j];
-
-      if (playerA.id == _kDummyId) {
-        byePlayer = playerB;
-        continue;
-      }
-      if (playerB.id == _kDummyId) {
-        byePlayer = playerA;
-        continue;
-      }
-
-      final MacmahonPlayer black;
-      final MacmahonPlayer white;
-      if (playerA.currentMms >= playerB.currentMms) {
-        black = playerA;
-        white = playerB;
-      } else {
-        black = playerB;
-        white = playerA;
-      }
-
+      final pA = leftSide[pairIdx.$1];
+      final pB = rightSide[pairIdx.$2];
+      
+      final black = pA.currentMms >= pB.currentMms ? pA : pB;
+      final white = pA.currentMms >= pB.currentMms ? pB : pA;
+      
       pairs.add(MacmahonPair(
         black: black,
         white: white,
-        cost: costMatrix[i][j],
+        cost: costMatrix[pairIdx.$1][pairIdx.$2],
       ));
     }
-
-    return PairingResult(
-      pairs: pairs,
-      round: round,
-      byePlayers: byePlayer != null ? [byePlayer] : [],
-    );
+    return pairs;
   }
 
   PairingResult generateLeaguePairing({

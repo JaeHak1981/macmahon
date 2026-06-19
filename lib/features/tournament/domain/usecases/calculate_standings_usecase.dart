@@ -187,6 +187,7 @@ class CalculateStandingsUseCase {
             currentMms: bye.currentMms + 1.0,
             wins: bye.wins + 1,
             floatHistory: [...bye.floatHistory, 0],
+            opponents: {...bye.opponents, '__dummy__'},
           );
         }
       }
