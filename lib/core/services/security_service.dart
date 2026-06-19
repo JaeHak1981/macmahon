@@ -2,8 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// 앱의 사용 기간 및 보안 관련 로직을 담당하는 서비스
 class SecurityService {
-  /// 만료 날짜 설정 (예: 2026년 12월 31일)
-  static final DateTime expirationDate = DateTime(2026, 12, 31);
+  /// 만료 날짜 설정 (2026년 8월 1일까지 사용 가능)
+  static final DateTime expirationDate = DateTime(2026, 8, 1, 23, 59, 59);
 
   /// 현재 시간이 만료 날짜를 지났는지 확인합니다.
   static bool isExpired() {
