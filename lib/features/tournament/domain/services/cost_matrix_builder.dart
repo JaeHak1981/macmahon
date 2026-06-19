@@ -3,7 +3,13 @@ import '../entities/macmahon_entities.dart';
 class CostMatrixBuilder {
   /// 두 선수 간의 매칭 비용을 계산합니다.
   static double calculateCost(MacmahonPlayer a, MacmahonPlayer b) {
-    if (a.id == '__dummy__' || b.id == '__dummy__') return 0;
+    if (a.id == '__dummy__' || b.id == '__dummy__') {
+      final realPlayer = a.id == '__dummy__' ? b : a;
+      if (realPlayer.opponents.contains('__dummy__')) {
+        return 100000;
+      }
+      return 0;
+    }
 
     double cost = 0;
 

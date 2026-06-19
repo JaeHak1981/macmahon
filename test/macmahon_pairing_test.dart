@@ -168,5 +168,64 @@ void main() {
       // 안티그래비티에 의해 P1은 동점인 P2와 매칭되어야 함
       expect(p1Opponent.id, equals('P2'));
     });
+
+    test('이미 부전승을 한 선수는 다음 라운드에서 부전승이 되지 않음 (중복 부전승 방지)', () {
+      final p1 = MacmahonPlayer(id: 'P1', name: 'A', initialMms: 4, currentMms: 4);
+      final p2 = MacmahonPlayer(id: 'P2', name: 'B', initialMms: 4, currentMms: 4);
+      final p3 = MacmahonPlayer(
+        id: 'P3', name: 'C',
+        initialMms: 4, currentMms: 4,
+        opponents: {'__dummy__'}, // P3는 이미 부전승을 했음
+      );
+
+      final result = service.generatePairing(
+        players: [p1, p2, p3],
+        round: 2,
+      );
+
+      // P3는 이미 부전승을 했으므로, 이번 부전승(byePlayer)은 P1 또는 P2여야 하고 P3는 아니어야 한다.
+      expect(result.byePlayer!.id, isNot(equals('P3')));
+      expect(result.pairs.length, equals(1));
+      // P3는 페어 중 한 명으로 매칭되어야 한다.
+      final p3Matched = result.pairs.any((pair) => pair.black.id == 'P3' || pair.white.id == 'P3');
+      expect(p3Matched, isTrue);
+    });
+
+    test('9명 홀수 진행 시 매 라운드 부전승 선수가 교체됨 (부전 쏠림 현상 해결)', () {
+      List<MacmahonPlayer> players = List.generate(
+        9,
+        (i) => MacmahonPlayer(
+          id: 'P${i + 1}',
+          name: 'Player ${i + 1}',
+          initialMms: 4,
+          currentMms: 4,
+        ),
+      );
+
+      final Set<String> byePlayerIds = {};
+
+      for (int round = 1; round <= 4; round++) {
+        final result = service.generatePairing(players: players, round: round);
+        final byePlayer = result.byePlayer;
+        expect(byePlayer, isNotNull);
+        
+        // 부전승 선수가 기존에 부전승을 한 적이 없는지 확인
+        expect(byePlayerIds.contains(byePlayer!.id), isFalse);
+        byePlayerIds.add(byePlayer.id);
+
+        // 다음 라운드를 위해 시뮬레이션: 부전승 기록 업데이트
+        players = players.map((p) {
+          if (p.id == byePlayer.id) {
+            return p.copyWith(
+              opponents: {...p.opponents, '__dummy__'},
+            );
+          }
+          return p;
+        }).toList();
+      }
+
+      // 4라운드 동안 총 4명의 서로 다른 부전승 선수가 나왔어야 함
+      expect(byePlayerIds.length, equals(4));
+    });
   });
 }

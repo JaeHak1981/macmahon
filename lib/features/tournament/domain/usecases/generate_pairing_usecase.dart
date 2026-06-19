@@ -106,6 +106,7 @@ class GeneratePairingUseCase {
     if (result.byePlayer != null) {
       final bye = playerMap[result.byePlayer!.id]!;
       playerMap[bye.id] = bye.copyWith(
+        opponents: {...bye.opponents, '__dummy__'},
         floatHistory: [...bye.floatHistory, 0],
       );
     }
