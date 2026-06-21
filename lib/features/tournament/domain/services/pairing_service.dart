@@ -1,6 +1,5 @@
 import '../entities/macmahon_entities.dart';
 import 'cost_matrix_builder.dart';
-import 'hungarian_solver.dart';
 
 class PairingService {
   PairingResult generatePairing({
@@ -35,21 +34,8 @@ class PairingService {
       );
     }
 
-    // 2. 다중 이분 분할 (Fallback Splits) 매칭
-    // 1차 시도 (Slide 분할 - 스위스 리그 기본 방식)
-    List<MacmahonPair> bestMatches = _attemptMatching(workingList, 'slide');
-    double bestCost = bestMatches.fold(0.0, (sum, p) => sum + p.cost);
-
-    // 10000점(재대결 패널티) 이상일 경우 2차 시도
-    if (bestCost >= 10000) {
-      // 2차 시도 (Fold 분할)
-      List<MacmahonPair> foldMatches = _attemptMatching(workingList, 'fold');
-      double foldCost = foldMatches.fold(0.0, (sum, p) => sum + p.cost);
-
-      if (foldCost < bestCost) {
-        bestMatches = foldMatches;
-      }
-    }
+    // 2. 완벽 매칭 (DFS 백트래킹)
+    List<MacmahonPair> bestMatches = _generatePerfectPairing(workingList);
 
     return PairingResult(
       pairs: bestMatches,
@@ -75,83 +61,101 @@ class PairingService {
     return validCandidates.first; // 가장 점수가 낮고 부전승을 안해본 선수
   }
 
-  List<MacmahonPair> _attemptMatching(List<MacmahonPlayer> players, String splitType) {
-    final int m = players.length ~/ 2;
-    final List<MacmahonPlayer> leftSide = [];
-    final List<MacmahonPlayer> rightSide = [];
+  List<MacmahonPair>? _bestPairs;
+  double _minCost = double.infinity;
+  int _iterations = 0;
+  static const int _maxIterations = 100000;
 
-    // 1. 점수(MMS)별로 그룹화
-    final Map<double, List<MacmahonPlayer>> mmsGroups = {};
-    for (var p in players) {
-      mmsGroups.putIfAbsent(p.currentMms, () => []).add(p);
+  List<MacmahonPair> _generatePerfectPairing(List<MacmahonPlayer> players) {
+    _bestPairs = null;
+    _minCost = double.infinity;
+    _iterations = 0;
+    
+    _dfs(players, [], 0.0);
+    
+    // 타임아웃 등으로 전혀 매칭을 찾지 못한 극소수의 경우에 대비한 Fallback (단순 스위스 연결)
+    if (_bestPairs == null) {
+      return _fallbackGreedyPairing(players);
     }
     
-    // 점수 내림차순 정렬
-    final sortedMms = mmsGroups.keys.toList()..sort((a, b) => b.compareTo(a));
-    
-    List<MacmahonPlayer> currentGroup = [];
-    for (int i = 0; i < sortedMms.length; i++) {
-      currentGroup.addAll(mmsGroups[sortedMms[i]]!);
-      
-      // 그룹 인원수가 홀수면 마지막 1명을 다음 점수 그룹으로 이월 (Float Down)
-      if (currentGroup.length % 2 != 0 && i < sortedMms.length - 1) {
-        final floater = currentGroup.removeLast();
-        mmsGroups[sortedMms[i+1]]!.insert(0, floater);
-      }
-      
-      // 이제 currentGroup은 짝수 명
-      if (currentGroup.length % 2 == 0 && currentGroup.isNotEmpty) {
-        int groupM = currentGroup.length ~/ 2;
-        if (splitType == 'slide') {
-          // Slide: 1등-중간1등, 2등-중간2등 (상/하위 밀기) - 스위스 기본
-          for (int j = 0; j < groupM; j++) {
-            leftSide.add(currentGroup[j]);
-            rightSide.add(currentGroup[groupM + j]);
-          }
-        } else if (splitType == 'fold') {
-          // Fold: 1등-꼴등, 2등-뒤에서2등 (상/하위 접기)
-          for (int j = 0; j < groupM; j++) {
-            leftSide.add(currentGroup[j]);
-            rightSide.add(currentGroup[currentGroup.length - 1 - j]);
-          }
-        } else {
-          // Adjacent: 1등-2등, 3등-4등
-          for (int j = 0; j < currentGroup.length; j++) {
-            if (j % 2 == 0) leftSide.add(currentGroup[j]);
-            else rightSide.add(currentGroup[j]);
-          }
-        }
-        currentGroup.clear();
-      }
-    }
-    
-    // 마지막 그룹에서 남은 인원 처리 방어코드
-    if (currentGroup.isNotEmpty) {
-      int groupM = currentGroup.length ~/ 2;
-      for (int j = 0; j < groupM; j++) {
-        leftSide.add(currentGroup[j]);
-        rightSide.add(currentGroup[groupM + j]);
-      }
-    }
+    return _bestPairs!;
+  }
 
-    final costMatrix = List.generate(
-      m, (i) => List.generate(m, (j) => CostMatrixBuilder.calculateCost(leftSide[i], rightSide[j]))
-    );
-    final matchedIndices = HungarianSolver.solve(costMatrix);
+  void _dfs(
+    List<MacmahonPlayer> unmatched, 
+    List<MacmahonPair> currentPairs, 
+    double currentCost,
+  ) {
+    // 안전장치: 과도한 연산 루프(타임아웃) 방지
+    if (_iterations > _maxIterations) return;
     
-    final List<MacmahonPair> pairs = [];
-    for (final pairIdx in matchedIndices) {
-      final pA = leftSide[pairIdx.$1];
-      final pB = rightSide[pairIdx.$2];
+    // 가지치기(Pruning): 현재까지 누적된 비용이 이미 최고기록(최저비용)을 초과했다면 탐색 중단
+    if (currentCost >= _minCost) return; 
+    
+    // 모두 짝이 지어진 경우: 새로운 최고기록 갱신
+    if (unmatched.isEmpty) {
+      _minCost = currentCost;
+      _bestPairs = List.from(currentPairs);
+      return;
+    }
+    
+    _iterations++;
+    
+    // 항상 가장 먼저 남은 선수(점수가 가장 높은 선수)를 기준으로 탐색
+    final p1 = unmatched.first;
+    final candidates = unmatched.sublist(1);
+    
+    // 상대방 후보 정렬: Cost가 낮은 순서대로 먼저 탐색하여 최적해를 빠르게 도출 (Greedy 방식)
+    candidates.sort((a, b) {
+      double costA = CostMatrixBuilder.calculateCost(p1, a);
+      double costB = CostMatrixBuilder.calculateCost(p1, b);
+      if (costA != costB) return costA.compareTo(costB);
       
-      final black = pA.currentMms >= pB.currentMms ? pA : pB;
-      final white = pA.currentMms >= pB.currentMms ? pB : pA;
+      // Cost가 동일하다면, 스위스 리그 Slide 방식처럼 중간 등수에 있는 사람을 우선 시도
+      int idealIdx = candidates.length ~/ 2;
+      int distA = (candidates.indexOf(a) - idealIdx).abs();
+      int distB = (candidates.indexOf(b) - idealIdx).abs();
+      return distA.compareTo(distB);
+    });
+    
+    for (final p2 in candidates) {
+      double cost = CostMatrixBuilder.calculateCost(p1, p2);
       
-      pairs.add(MacmahonPair(
+      // 후보들이 이미 Cost 오름차순 정렬되어 있으므로, 
+      // 이 시점에서 한계치를 넘었다면 뒤의 후보들은 안 봐도 한계치를 넘음 (가지치기 극대화)
+      if (currentCost + cost >= _minCost) break;
+      
+      final nextUnmatched = List<MacmahonPlayer>.from(unmatched)
+        ..remove(p1)
+        ..remove(p2);
+        
+      final black = p1.currentMms >= p2.currentMms ? p1 : p2;
+      final white = p1.currentMms >= p2.currentMms ? p2 : p1;
+      
+      currentPairs.add(MacmahonPair(
         black: black,
         white: white,
-        cost: costMatrix[pairIdx.$1][pairIdx.$2],
+        cost: cost,
       ));
+      
+      _dfs(nextUnmatched, currentPairs, currentCost + cost);
+      
+      currentPairs.removeLast(); // 백트래킹(되돌리기)
+    }
+  }
+
+  List<MacmahonPair> _fallbackGreedyPairing(List<MacmahonPlayer> players) {
+    final pairs = <MacmahonPair>[];
+    for (int i = 0; i < players.length; i += 2) {
+      if (i + 1 < players.length) {
+        final p1 = players[i];
+        final p2 = players[i + 1];
+        pairs.add(MacmahonPair(
+          black: p1.currentMms >= p2.currentMms ? p1 : p2,
+          white: p1.currentMms >= p2.currentMms ? p2 : p1,
+          cost: CostMatrixBuilder.calculateCost(p1, p2),
+        ));
+      }
     }
     return pairs;
   }
@@ -371,14 +375,4 @@ class PairingService {
 
   static const String _kDummyId = '__dummy__';
 
-  MacmahonPlayer _createDummyPlayer(List<MacmahonPlayer> players) {
-    final lowestMms =
-        players.map((p) => p.currentMms).reduce((a, b) => a < b ? a : b);
-    return MacmahonPlayer(
-      id: _kDummyId,
-      name: 'BYE',
-      initialMms: lowestMms - 1,
-      currentMms: lowestMms - 1,
-    );
-  }
 }
