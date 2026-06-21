@@ -980,8 +980,10 @@ class _ResultGridTab extends StatelessWidget {
             roundsCount + 2: const FixedColumnWidth(60), // 초기 MMS
             roundsCount + 3: const FixedColumnWidth(60), // 승수
             roundsCount + 4: const FixedColumnWidth(60), // MMS
-            roundsCount + 5: const FixedColumnWidth(60), // SOS
-            roundsCount + 6: const FixedColumnWidth(60), // 순위
+            roundsCount + 5: const FixedColumnWidth(60), // 누진
+            roundsCount + 6: const FixedColumnWidth(60), // SODOS
+            roundsCount + 7: const FixedColumnWidth(60), // SOS
+            roundsCount + 8: const FixedColumnWidth(60), // 순위
           },
           defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           border: TableBorder.all(color: Colors.black, width: 1.0),
@@ -996,6 +998,8 @@ class _ResultGridTab extends StatelessWidget {
                 _GridMainHeaderCell('초기'),
                 _GridMainHeaderCell('승수'),
                 _GridMainHeaderCell('MMS'),
+                _GridMainHeaderCell('누진'),
+                _GridMainHeaderCell('SODOS'),
                 _GridMainHeaderCell('SOS'),
                 _GridMainHeaderCell('순위'),
               ],
@@ -1076,6 +1080,14 @@ class _ResultGridTab extends StatelessWidget {
           textAlign: TextAlign.center,
           bold: true,
           color: AppTheme.primary,
+        ),
+        _GridDataCell(
+          player.cumulativeScore.toStringAsFixed(1),
+          textAlign: TextAlign.center,
+        ),
+        _GridDataCell(
+          player.sodos.toStringAsFixed(1),
+          textAlign: TextAlign.center,
         ),
         _GridDataCell(
           player.sos.toStringAsFixed(1),
