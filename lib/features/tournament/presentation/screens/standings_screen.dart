@@ -1149,6 +1149,7 @@ class _ResultGridTab extends StatelessWidget {
           ),
           Container(width: 1, height: 72, color: Colors.black),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: (pair != null && isCurrentRound)
                 ? () {
                     final opponent =
