@@ -12,7 +12,13 @@ class PairingService {
     }
 
     final List<MacmahonPlayer> workingList = List.from(players);
-    workingList.sort((a, b) => b.currentMms.compareTo(a.currentMms));
+    workingList.sort((a, b) {
+      int mmsComp = b.currentMms.compareTo(a.currentMms);
+      if (mmsComp != 0) return mmsComp;
+      int sosComp = b.sos.compareTo(a.sos);
+      if (sosComp != 0) return sosComp;
+      return a.id.compareTo(b.id);
+    });
 
     // 1. 부전승(BYE) 사전 분리 로직
     MacmahonPlayer? byePlayer;
@@ -30,18 +36,18 @@ class PairingService {
     }
 
     // 2. 다중 이분 분할 (Fallback Splits) 매칭
-    // 1차 시도 (Fold 분할)
-    List<MacmahonPair> bestMatches = _attemptMatching(workingList, 'fold');
+    // 1차 시도 (Slide 분할 - 스위스 리그 기본 방식)
+    List<MacmahonPair> bestMatches = _attemptMatching(workingList, 'slide');
     double bestCost = bestMatches.fold(0.0, (sum, p) => sum + p.cost);
 
     // 10000점(재대결 패널티) 이상일 경우 2차 시도
     if (bestCost >= 10000) {
-      // 2차 시도 (Slide 분할)
-      List<MacmahonPair> slideMatches = _attemptMatching(workingList, 'slide');
-      double slideCost = slideMatches.fold(0.0, (sum, p) => sum + p.cost);
+      // 2차 시도 (Fold 분할)
+      List<MacmahonPair> foldMatches = _attemptMatching(workingList, 'fold');
+      double foldCost = foldMatches.fold(0.0, (sum, p) => sum + p.cost);
 
-      if (slideCost < bestCost) {
-        bestMatches = slideMatches;
+      if (foldCost < bestCost) {
+        bestMatches = foldMatches;
       }
     }
 
@@ -74,15 +80,57 @@ class PairingService {
     final List<MacmahonPlayer> leftSide = [];
     final List<MacmahonPlayer> rightSide = [];
 
-    if (splitType == 'fold') {
-      for (int i = 0; i < players.length; i++) {
-        if (i % 2 == 0) leftSide.add(players[i]);
-        else rightSide.add(players[i]);
+    // 1. 점수(MMS)별로 그룹화
+    final Map<double, List<MacmahonPlayer>> mmsGroups = {};
+    for (var p in players) {
+      mmsGroups.putIfAbsent(p.currentMms, () => []).add(p);
+    }
+    
+    // 점수 내림차순 정렬
+    final sortedMms = mmsGroups.keys.toList()..sort((a, b) => b.compareTo(a));
+    
+    List<MacmahonPlayer> currentGroup = [];
+    for (int i = 0; i < sortedMms.length; i++) {
+      currentGroup.addAll(mmsGroups[sortedMms[i]]!);
+      
+      // 그룹 인원수가 홀수면 마지막 1명을 다음 점수 그룹으로 이월 (Float Down)
+      if (currentGroup.length % 2 != 0 && i < sortedMms.length - 1) {
+        final floater = currentGroup.removeLast();
+        mmsGroups[sortedMms[i+1]]!.insert(0, floater);
       }
-    } else if (splitType == 'slide') {
-      for (int i = 0; i < m; i++) {
-        leftSide.add(players[i]);
-        rightSide.add(players[m + i]);
+      
+      // 이제 currentGroup은 짝수 명
+      if (currentGroup.length % 2 == 0 && currentGroup.isNotEmpty) {
+        int groupM = currentGroup.length ~/ 2;
+        if (splitType == 'slide') {
+          // Slide: 1등-중간1등, 2등-중간2등 (상/하위 밀기) - 스위스 기본
+          for (int j = 0; j < groupM; j++) {
+            leftSide.add(currentGroup[j]);
+            rightSide.add(currentGroup[groupM + j]);
+          }
+        } else if (splitType == 'fold') {
+          // Fold: 1등-꼴등, 2등-뒤에서2등 (상/하위 접기)
+          for (int j = 0; j < groupM; j++) {
+            leftSide.add(currentGroup[j]);
+            rightSide.add(currentGroup[currentGroup.length - 1 - j]);
+          }
+        } else {
+          // Adjacent: 1등-2등, 3등-4등
+          for (int j = 0; j < currentGroup.length; j++) {
+            if (j % 2 == 0) leftSide.add(currentGroup[j]);
+            else rightSide.add(currentGroup[j]);
+          }
+        }
+        currentGroup.clear();
+      }
+    }
+    
+    // 마지막 그룹에서 남은 인원 처리 방어코드
+    if (currentGroup.isNotEmpty) {
+      int groupM = currentGroup.length ~/ 2;
+      for (int j = 0; j < groupM; j++) {
+        leftSide.add(currentGroup[j]);
+        rightSide.add(currentGroup[groupM + j]);
       }
     }
 

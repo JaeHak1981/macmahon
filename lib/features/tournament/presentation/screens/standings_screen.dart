@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import '../providers/history_provider.dart';
 import 'knockout_selection_screen.dart';
 import 'bracket_screen.dart';
+import 'manual_pairing_edit_screen.dart';
 
 class StandingsScreen extends ConsumerStatefulWidget {
   final int initialIndex;

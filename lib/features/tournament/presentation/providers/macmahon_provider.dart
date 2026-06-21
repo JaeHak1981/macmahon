@@ -11,6 +11,7 @@ import '../../domain/usecases/advance_round_usecase.dart';
 import '../../domain/usecases/undo_round_usecase.dart';
 import '../../domain/usecases/manage_knockout_usecase.dart';
 import '../../domain/services/pairing_service.dart';
+import '../../domain/services/cost_matrix_builder.dart';
 import '../../data/repositories/tournament_repository_impl.dart';
 
 // ─── Providers ──────────────────────────────────────────
@@ -302,7 +303,6 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     state = _calculateStandingsUseCase.execute(state);
   }
 
-  // ── 기타 (수동 대진 등) ───────────────────────────────────
 
   Future<void> generateManualPairing(List<MacmahonPlayer> orderedPlayers) async {
     state = state.copyWith(isLoading: true, errorMessage: null);

@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/macmahon_entities.dart';
 import '../providers/macmahon_provider.dart';
 import '../providers/history_provider.dart';
+import '../../../../core/constants/tournament_enums.dart';
 
 class PairingScreen extends ConsumerStatefulWidget {
   const PairingScreen({super.key});
@@ -147,10 +148,15 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
                         fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
-                  Text(
-                    '총 비용: ${state.currentPairing!.totalCost.toStringAsFixed(0)}',
-                    style: const TextStyle(
-                        fontSize: 12, color: AppTheme.textSecondary),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '총 비용: ${state.currentPairing!.totalCost.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textSecondary),
+                      ),
+                    ],
                   ),
                 ],
               ),

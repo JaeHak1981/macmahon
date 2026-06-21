@@ -27,7 +27,14 @@ class GeneratePairingUseCase {
         return state.copyWith(errorMessage: '대회 방식을 먼저 설정해 주세요.');
       }
 
-      // 1. 대진 생성
+      // 1. 기존 대진표(현재 라운드)가 이미 존재한다면 (재생성하는 경우), 이전 대진표의 상대 기록을 선수 데이터에서 롤백합니다.
+      // (그렇지 않으면 동일 라운드에서 여러 번 추천 로직을 돌릴 때마다 리매치 패널티가 누적되어 매번 다른 상대가 매칭되는 현상 발생)
+      List<MacmahonPlayer> cleanPlayers = sectionPlayers;
+      if (currentData.currentPairing != null) {
+        cleanPlayers = _revertPairingFromPlayers(sectionPlayers, currentData.currentPairing!);
+      }
+
+      // 2. 대진 생성
       if (format == TournamentFormat.league || (format == TournamentFormat.leagueAndKnockout && currentData.stage == 1)) {
         if (currentData.groupCount > 1) {
           result = _pairingService.generateGroupLeaguePairing(
@@ -45,16 +52,16 @@ class GeneratePairingUseCase {
         result = _pairingService.generateKnockoutPairing(players: survivors, round: currentRound);
       } else {
         if (currentRound == 1 && isSequentialForR1) {
-          result = _generateSequentialPairing(sectionPlayers);
+          result = _generateSequentialPairing(cleanPlayers);
         } else {
-          result = await Future(() => _pairingService.generatePairing(players: sectionPlayers, round: currentRound));
+          result = await Future(() => _pairingService.generatePairing(players: cleanPlayers, round: currentRound));
         }
       }
 
-      // 2. 대진 기록 반영 (Immutable하게 선수들 업데이트)
-      final updatedSectionPlayers = _applyPairingToPlayers(sectionPlayers, result);
+      // 3. 대진 기록 반영 (Immutable하게 선수들 업데이트)
+      final updatedSectionPlayers = _applyPairingToPlayers(cleanPlayers, result);
       
-      // 3. 상태 업데이트
+      // 4. 상태 업데이트
       final Map<String, MacmahonPlayer> updateMap = {
         for (final p in updatedSectionPlayers) p.id: p
       };
@@ -109,6 +116,54 @@ class GeneratePairingUseCase {
         opponents: {...bye.opponents, '__dummy__'},
         floatHistory: [...bye.floatHistory, 0],
       );
+    }
+
+    return playerMap.values.toList();
+  }
+
+  /// 대진 결과를 취소하여 선수들의 기록에서 롤백 (재생성 전 정화 작업)
+  List<MacmahonPlayer> _revertPairingFromPlayers(List<MacmahonPlayer> players, PairingResult result) {
+    final Map<String, MacmahonPlayer> playerMap = {for (final p in players) p.id: p};
+    
+    for (final pair in result.pairs) {
+      final b = playerMap[pair.black.id];
+      final w = playerMap[pair.white.id];
+      
+      if (b != null) {
+        final newOpponents = Set<String>.from(b.opponents)..remove(pair.white.id);
+        final newFloatHistory = List<int>.from(b.floatHistory);
+        if (newFloatHistory.isNotEmpty) newFloatHistory.removeLast();
+        
+        playerMap[b.id] = b.copyWith(
+          opponents: newOpponents,
+          floatHistory: newFloatHistory,
+        );
+      }
+      
+      if (w != null) {
+        final newOpponents = Set<String>.from(w.opponents)..remove(pair.black.id);
+        final newFloatHistory = List<int>.from(w.floatHistory);
+        if (newFloatHistory.isNotEmpty) newFloatHistory.removeLast();
+        
+        playerMap[w.id] = w.copyWith(
+          opponents: newOpponents,
+          floatHistory: newFloatHistory,
+        );
+      }
+    }
+
+    for (final bye in result.byePlayers) {
+      final b = playerMap[bye.id];
+      if (b != null) {
+        final newOpponents = Set<String>.from(b.opponents)..remove('__dummy__');
+        final newFloatHistory = List<int>.from(b.floatHistory);
+        if (newFloatHistory.isNotEmpty) newFloatHistory.removeLast();
+        
+        playerMap[bye.id] = b.copyWith(
+          opponents: newOpponents,
+          floatHistory: newFloatHistory,
+        );
+      }
     }
 
     return playerMap.values.toList();
