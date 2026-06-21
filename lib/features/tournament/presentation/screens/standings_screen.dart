@@ -13,7 +13,6 @@ import 'package:flutter/services.dart';
 import '../providers/history_provider.dart';
 import 'knockout_selection_screen.dart';
 import 'bracket_screen.dart';
-import 'manual_pairing_edit_screen.dart';
 
 class StandingsScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -1136,38 +1135,38 @@ class _ResultGridTab extends StatelessWidget {
 
     final isCurrentRound = roundHistory.round == state.currentRound;
 
-    return GestureDetector(
-      onTap: (pair != null && isCurrentRound)
-          ? () {
-              final opponent =
-                  pair!.black.id == player.id ? pair!.white : pair!.black;
-              onResultTap(player, opponent, pair!);
-            }
+    return Container(
+      color: (pair != null && isCurrentRound && !pair.isResultEntered)
+          ? AppTheme.primary.withValues(alpha: 0.05)
           : null,
-      child: Container(
-        color: (pair != null && isCurrentRound && !pair.isResultEntered)
-            ? AppTheme.primary.withValues(alpha: 0.05)
-            : null,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _GridDataCell(
-              opponentNumStr,
-              minWidth: 60,
-              color:
-                  pair != null && !pair.isResultEntered ? Colors.black : color,
-              bold: pair != null, // 대진이 있으면 무조건 굵게 표시
-            ),
-            Container(width: 1, height: 72, color: Colors.black),
-            _GridDataCellWithScore(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _GridDataCell(
+            opponentNumStr,
+            minWidth: 60,
+            color:
+                pair != null && !pair.isResultEntered ? Colors.black : color,
+            bold: pair != null, // 대진이 있으면 무조건 굵게 표시
+          ),
+          Container(width: 1, height: 72, color: Colors.black),
+          GestureDetector(
+            onTap: (pair != null && isCurrentRound)
+                ? () {
+                    final opponent =
+                        pair!.black.id == player.id ? pair!.white : pair!.black;
+                    onResultTap(player, opponent, pair!);
+                  }
+                : null,
+            child: _GridDataCellWithScore(
               marker,
               mmsAfterRound,
               color: color,
               fontSize: markerSize ?? 13,
               bold: true,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
