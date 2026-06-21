@@ -10,6 +10,7 @@ import '../providers/macmahon_provider.dart';
 import '../../../../core/services/export_service.dart';
 import '../../../../core/utils/macmahon_utils.dart';
 import 'package:flutter/services.dart';
+import 'package:collection/collection.dart';
 import '../providers/history_provider.dart';
 import 'knockout_selection_screen.dart';
 import 'bracket_screen.dart';
@@ -856,13 +857,10 @@ class _RankingsTab extends StatelessWidget {
 
       final displayRank = playerRanks[player.id] ?? (i + 1);
       final isTopThree = displayRank <= 3;
-      final currentPair = state.currentPairing?.pairs.firstWhere(
+      final currentPair = state.currentPairing?.pairs.firstWhereOrNull(
         (p) => p.black.id == player.id || p.white.id == player.id,
-        orElse: () => MacmahonPair(
-            black: player, white: player, cost: 0), // Dummy
       );
-      final hasCurrentMatch = currentPair != null &&
-          currentPair.black.id != currentPair.white.id;
+      final hasCurrentMatch = currentPair != null;
 
       items.add(_StandingsTile(
         rank: displayRank,
@@ -1543,14 +1541,9 @@ class _StandingsTile extends StatelessWidget {
   }
 
   Widget _buildRoundMiniBadge(PairingResult roundHistory, int roundNum) {
-    MacmahonPair? pair;
-    try {
-      pair = roundHistory.pairs.firstWhere(
-        (p) => p.black.id == player.id || p.white.id == player.id,
-      );
-    } catch (_) {
-      pair = null;
-    }
+    final pair = roundHistory.pairs.firstWhereOrNull(
+      (p) => p.black.id == player.id || p.white.id == player.id,
+    );
 
     String text = '';
     Color color = Colors.grey;
