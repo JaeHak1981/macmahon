@@ -2,54 +2,68 @@ import '../entities/macmahon_entities.dart';
 import 'cost_matrix_builder.dart';
 
 class PairingService {
+  int _bestCost = 999999;
+  List<MacmahonPair>? _bestPairs;
+
   PairingResult generatePairing({
     required List<MacmahonPlayer> players,
     required int round,
   }) {
+    _bestCost = 999999;
+    _bestPairs = null;
+
     if (players.isEmpty) {
       return PairingResult(pairs: [], round: round);
     }
 
-    // 1. 순위표 정렬: 점수(MMS) ➔ 가산점(SOS) 순
+    // 1. 순위표 정렬: 점수(MMS) ➔ 기세(historyString) ➔ 가산점(SOS) 순
     final List<MacmahonPlayer> workingList = List.from(players);
     workingList.sort((a, b) {
       int mmsComp = b.currentMms.compareTo(a.currentMms);
       if (mmsComp != 0) return mmsComp;
+      // 2. 기세(승패 흐름) - 내림차순 (WW > WL > LW > LL)
+      int histComp = b.historyString.compareTo(a.historyString);
+      if (histComp != 0) return histComp;
       return b.sos.compareTo(a.sos);
     });
 
     final List<MacmahonPair> pairs = [];
-    final List<MacmahonPlayer> unmatched = List.from(workingList);
+    MacmahonPlayer? byePlayer;
+    List<MacmahonPlayer> unmatched = List.from(workingList);
 
-    // 2. 직관적 매칭
-    while (unmatched.length >= 2) {
-      final p1 = unmatched.removeAt(0);
-      int partnerIndex = 0;
-
-      // 이미 대국한 상대 회피 (한 칸 미루기)
-      while (partnerIndex < unmatched.length && p1.hasPlayedAgainst(unmatched[partnerIndex].id)) {
-        partnerIndex++;
+    // 2. 부전승(BYE) 처리 (홀수라서 1명이 남은 경우)
+    if (unmatched.length % 2 != 0) {
+      // 한 사람이 부전승을 1번 이상 할 수 없도록 필터링
+      // 부전승을 한 번도 안 해본 선수 중 가장 후순위 선수를 찾음
+      int byeCandidateIndex = -1;
+      for (int i = unmatched.length - 1; i >= 0; i--) {
+        if (!unmatched[i].hasPlayedAgainst(_kDummyId)) {
+          byeCandidateIndex = i;
+          break;
+        }
       }
-
-      // 남은 전원과 이미 대국했다면 어쩔 수 없이 제일 가까운 바로 뒷사람과 매칭 (에러 방지용)
-      if (partnerIndex == unmatched.length) {
-        partnerIndex = 0;
-      }
-
-      final p2 = unmatched.removeAt(partnerIndex);
       
-      // 흑백 배정은 점수 기반으로 (기존 로직 유지)
-      final black = p1.currentMms >= p2.currentMms ? p1 : p2;
-      final white = p1.currentMms >= p2.currentMms ? p2 : p1;
-
-      // 직관적 매칭이므로 Cost는 0.0으로 고정
-      pairs.add(MacmahonPair(black: black, white: white, cost: 0.0));
+      // 만약 전원이 부전승을 한 번씩 해본 극단적인 경우라면 그냥 꼴찌를 지정
+      if (byeCandidateIndex == -1) {
+        byeCandidateIndex = unmatched.length - 1;
+      }
+      
+      byePlayer = unmatched.removeAt(byeCandidateIndex);
     }
 
-    // 3. 부전승(BYE) 처리 (홀수라서 1명이 남은 경우)
-    MacmahonPlayer? byePlayer;
-    if (unmatched.isNotEmpty) {
-      byePlayer = unmatched.first;
+    // 3. 스마트 백트래킹(DFS)으로 최적의 직관적 매칭 찾기
+    bool success = _findBestPairingDFS(unmatched, pairs, 0, workingList);
+
+    if (success && _bestPairs != null) {
+      pairs.clear();
+      pairs.addAll(_bestPairs!);
+    } else {
+      pairs.clear();
+      unmatched = List.from(workingList);
+      if (unmatched.length % 2 != 0) {
+        byePlayer = unmatched.removeLast(); // 단순 꼴찌 배정
+      }
+      _fallbackGreedyPairing(unmatched, pairs);
     }
 
     return PairingResult(
@@ -59,124 +73,94 @@ class PairingService {
     );
   }
 
-  /*
-  // --- 기존 DFS 기반 고급 매칭 로직 (직관적 매칭 교체로 비활성화 됨) ---
-  MacmahonPlayer _findByePlayer(List<MacmahonPlayer> players) {
-    // 1. 부전승 후보: 이미 부전승 경험이 있는 선수 제외
-    final candidates = players.where((p) => !p.opponents.contains('__dummy__')).toList();
+  bool _findBestPairingDFS(
+      List<MacmahonPlayer> unmatched,
+      List<MacmahonPair> currentPairs,
+      int currentCost,
+      List<MacmahonPlayer> originalList) {
     
-    // 만약 전원이 부전승을 해봤다면 전체 선수를 후보로 둠 (방어 코드)
-    final validCandidates = candidates.isNotEmpty ? candidates : List<MacmahonPlayer>.from(players);
+    // Pruning: 이미 찾은 최고 기록보다 벌점이 높으면 즉시 포기
+    if (currentCost >= _bestCost) return false;
 
-    // 2. 점수(MMS) 오름차순(최하위 우선), 동점 시 SOS 오름차순 정렬
-    validCandidates.sort((a, b) {
-      int mmsComp = a.currentMms.compareTo(b.currentMms);
-      if (mmsComp != 0) return mmsComp;
-      return a.sos.compareTo(b.sos);
-    });
-
-    return validCandidates.first; // 가장 점수가 낮고 부전승을 안해본 선수
-  }
-
-  List<MacmahonPair>? _bestPairs;
-  double _minCost = double.infinity;
-  int _iterations = 0;
-  static const int _maxIterations = 100000;
-
-  List<MacmahonPair> _generatePerfectPairing(List<MacmahonPlayer> players) {
-    _bestPairs = null;
-    _minCost = double.infinity;
-    _iterations = 0;
-    
-    _dfs(players, [], 0.0);
-    
-    // 타임아웃 등으로 전혀 매칭을 찾지 못한 극소수의 경우에 대비한 Fallback (단순 스위스 연결)
-    if (_bestPairs == null) {
-      return _fallbackGreedyPairing(players);
-    }
-    
-    return _bestPairs!;
-  }
-
-  void _dfs(
-    List<MacmahonPlayer> unmatched, 
-    List<MacmahonPair> currentPairs, 
-    double currentCost,
-  ) {
-    // 안전장치: 과도한 연산 루프(타임아웃) 방지
-    if (_iterations > _maxIterations) return;
-    
-    // 가지치기(Pruning): 현재까지 누적된 비용이 이미 최고기록(최저비용)을 초과했다면 탐색 중단
-    if (currentCost >= _minCost) return; 
-    
-    // 모두 짝이 지어진 경우: 새로운 최고기록 갱신
+    // 모든 선수의 짝을 다 찾은 경우
     if (unmatched.isEmpty) {
-      _minCost = currentCost;
+      _bestCost = currentCost;
       _bestPairs = List.from(currentPairs);
-      return;
+      return true; // 일단 하나 찾았음
     }
-    
-    _iterations++;
-    
-    // 항상 가장 먼저 남은 선수(점수가 가장 높은 선수)를 기준으로 탐색
-    final p1 = unmatched.first;
-    final candidates = unmatched.sublist(1);
-    
-    // 상대방 후보 정렬: Cost가 낮은 순서대로 먼저 탐색하여 최적해를 빠르게 도출 (Greedy 방식)
-    candidates.sort((a, b) {
-      double costA = CostMatrixBuilder.calculateCost(p1, a);
-      double costB = CostMatrixBuilder.calculateCost(p1, b);
-      if (costA != costB) return costA.compareTo(costB);
-      
-      // Cost가 동일하다면, 스위스 리그 Slide 방식처럼 중간 등수에 있는 사람을 우선 시도
-      int idealIdx = candidates.length ~/ 2;
-      int distA = (candidates.indexOf(a) - idealIdx).abs();
-      int distB = (candidates.indexOf(b) - idealIdx).abs();
-      return distA.compareTo(distB);
-    });
-    
-    for (final p2 in candidates) {
-      double cost = CostMatrixBuilder.calculateCost(p1, p2);
-      
-      // 후보들이 이미 Cost 오름차순 정렬되어 있으므로, 
-      // 이 시점에서 한계치를 넘었다면 뒤의 후보들은 안 봐도 한계치를 넘음 (가지치기 극대화)
-      if (currentCost + cost >= _minCost) break;
-      
-      final nextUnmatched = List<MacmahonPlayer>.from(unmatched)
-        ..remove(p1)
-        ..remove(p2);
-        
-      final black = p1.currentMms >= p2.currentMms ? p1 : p2;
-      final white = p1.currentMms >= p2.currentMms ? p2 : p1;
-      
-      currentPairs.add(MacmahonPair(
-        black: black,
-        white: white,
-        cost: cost,
-      ));
-      
-      _dfs(nextUnmatched, currentPairs, currentCost + cost);
-      
-      currentPairs.removeLast(); // 백트래킹(되돌리기)
-    }
-  }
 
-  List<MacmahonPair> _fallbackGreedyPairing(List<MacmahonPlayer> players) {
-    final pairs = <MacmahonPair>[];
-    for (int i = 0; i < players.length; i += 2) {
-      if (i + 1 < players.length) {
-        final p1 = players[i];
-        final p2 = players[i + 1];
-        pairs.add(MacmahonPair(
-          black: p1.currentMms >= p2.currentMms ? p1 : p2,
-          white: p1.currentMms >= p2.currentMms ? p2 : p1,
-          cost: CostMatrixBuilder.calculateCost(p1, p2),
-        ));
+    MacmahonPlayer p1 = unmatched[0];
+    bool foundAny = false;
+
+    for (int i = 1; i < unmatched.length; i++) {
+      MacmahonPlayer p2 = unmatched[i];
+
+      // 두 사람이 둔 적이 없다면 짝을 지어봄
+      if (!p1.hasPlayedAgainst(p2.id)) {
+        int pairCost = _calculateCost(p1, p2, originalList);
+        
+        final black = p1.currentMms >= p2.currentMms ? p1 : p2;
+        final white = p1.currentMms >= p2.currentMms ? p2 : p1;
+        
+        currentPairs.add(MacmahonPair(black: black, white: white, cost: pairCost.toDouble()));
+        
+        List<MacmahonPlayer> remaining = List.from(unmatched)
+          ..remove(p1)
+          ..remove(p2);
+
+        if (_findBestPairingDFS(remaining, currentPairs, currentCost + pairCost, originalList)) {
+          foundAny = true;
+        }
+
+        currentPairs.removeLast();
       }
     }
-    return pairs;
+
+    return foundAny;
   }
-  */
+
+  int _calculateCost(MacmahonPlayer p1, MacmahonPlayer p2, List<MacmahonPlayer> originalList) {
+    int cost = 0;
+    
+    // 1. MMS 차이 벌점 (1점 차이당 1000점)
+    int mmsDiff = (p1.currentMms - p2.currentMms).abs().toInt();
+    cost += mmsDiff * 1000;
+    
+    // 2. 기세(History) 다름 벌점
+    if (p1.historyString != p2.historyString) {
+      cost += 100;
+    }
+    
+    // 3. 거리 벌점 (원래 정렬된 리스트에서의 인덱스 차이)
+    int idx1 = originalList.indexOf(p1);
+    int idx2 = originalList.indexOf(p2);
+    cost += (idx1 - idx2).abs();
+    
+    return cost;
+  }
+
+  void _fallbackGreedyPairing(List<MacmahonPlayer> unmatched, List<MacmahonPair> pairs) {
+    while (unmatched.length >= 2) {
+      final p1 = unmatched.removeAt(0);
+      int partnerIndex = 0;
+
+      while (partnerIndex < unmatched.length && p1.hasPlayedAgainst(unmatched[partnerIndex].id)) {
+        partnerIndex++;
+      }
+
+      if (partnerIndex == unmatched.length) {
+        partnerIndex = 0; // 에러 방지용 강제 매칭
+      }
+
+      final p2 = unmatched.removeAt(partnerIndex);
+      final black = p1.currentMms >= p2.currentMms ? p1 : p2;
+      final white = p1.currentMms >= p2.currentMms ? p2 : p1;
+
+      pairs.add(MacmahonPair(black: black, white: white, cost: 0.0));
+    }
+  }
+
+
 
   PairingResult generateLeaguePairing({
     required List<MacmahonPlayer> players,

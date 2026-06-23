@@ -108,6 +108,7 @@ class MacmahonPlayer {
   final double sosos;
   final double cumulativeScore;
   final String? groupId;
+  final List<String> results;
 
   MacmahonPlayer({
     required this.id,
@@ -127,6 +128,7 @@ class MacmahonPlayer {
     this.sosos = 0.0,
     this.cumulativeScore = 0.0,
     this.groupId,
+    this.results = const [],
   });
 
   MacmahonPlayer copyWith({
@@ -147,6 +149,7 @@ class MacmahonPlayer {
     double? sosos,
     double? cumulativeScore,
     String? groupId,
+    List<String>? results,
   }) {
     return MacmahonPlayer(
       id: id ?? this.id,
@@ -166,8 +169,11 @@ class MacmahonPlayer {
       sosos: sosos ?? this.sosos,
       cumulativeScore: cumulativeScore ?? this.cumulativeScore,
       groupId: groupId ?? this.groupId,
+      results: results ?? this.results,
     );
   }
+
+  String get historyString => results.join('');
 
   int? get lastFloat => floatHistory.isEmpty ? null : floatHistory.last;
 

@@ -14,7 +14,7 @@ class PairingScreen extends ConsumerStatefulWidget {
 }
 
 class _PairingScreenState extends ConsumerState<PairingScreen> {
-  bool _isSequentialR1 = false; // 기본값은 무작위
+  bool _isSequentialR1 = true; // 기본값은 등록순 매칭
 
   @override
   Widget build(BuildContext context) {

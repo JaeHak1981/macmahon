@@ -80,6 +80,7 @@ class CalculateStandingsUseCase {
         cumulativeScore: 0.0,
         floatHistory: [],
         opponents: s.defeated.toSet(),
+        results: [],
       );
     }).toList();
   }
@@ -149,6 +150,7 @@ class CalculateStandingsUseCase {
           defeatedOpponents: {},
           floatHistory: [],
           cumulativeScore: 0.0,
+          results: [],
         )
     };
 
@@ -176,23 +178,33 @@ class CalculateStandingsUseCase {
             wins: updatedB.wins + 1,
             currentMms: updatedB.currentMms + 1.0,
             defeatedOpponents: {...updatedB.defeatedOpponents, w.id},
+            results: [...updatedB.results, 'W'],
           );
-          playerMap[w.id] = updatedW.copyWith(losses: updatedW.losses + 1);
+          playerMap[w.id] = updatedW.copyWith(
+            losses: updatedW.losses + 1,
+            results: [...updatedW.results, 'L'],
+          );
         } else if (pair.winnerId == w.id) {
           playerMap[w.id] = updatedW.copyWith(
             wins: updatedW.wins + 1,
             currentMms: updatedW.currentMms + 1.0,
             defeatedOpponents: {...updatedW.defeatedOpponents, b.id},
+            results: [...updatedW.results, 'W'],
           );
-          playerMap[b.id] = updatedB.copyWith(losses: updatedB.losses + 1);
+          playerMap[b.id] = updatedB.copyWith(
+            losses: updatedB.losses + 1,
+            results: [...updatedB.results, 'L'],
+          );
         } else if (pair.isResultEntered) {
           playerMap[b.id] = updatedB.copyWith(
             draws: updatedB.draws + 1,
             currentMms: updatedB.currentMms + 0.5,
+            results: [...updatedB.results, 'D'],
           );
           playerMap[w.id] = updatedW.copyWith(
             draws: updatedW.draws + 1,
             currentMms: updatedW.currentMms + 0.5,
+            results: [...updatedW.results, 'D'],
           );
         }
       }
@@ -204,6 +216,7 @@ class CalculateStandingsUseCase {
             wins: bye.wins + 1,
             floatHistory: [...bye.floatHistory, 0],
             opponents: {...bye.opponents, '__dummy__'},
+            results: [...bye.results, 'W'], // 부전승도 일단 'W'로 처리하거나 'B'로 할 수 있음. 기세 흐름상 'W'가 좋음.
           );
         }
       }
