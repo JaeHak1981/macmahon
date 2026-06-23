@@ -534,9 +534,12 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
         // 3차: 다중 조건 정렬
         tiedPlayers.sort((a, b) {
           if (!isLeague) {
-            // 맥마흔 & 스위스리그: 선승(누진) -> 승자승(1:1 및 다자간) -> SODOS -> SOS
-            final cumCmp = b.cumulativeScore.compareTo(a.cumulativeScore);
-            if (cumCmp != 0) return cumCmp;
+            // 맥마흔 & 스위스리그: SOS -> SODOS -> 승자승 -> SOSOS -> 누진점수
+            final sosCmp = b.sos.compareTo(a.sos);
+            if (sosCmp != 0) return sosCmp;
+
+            final sodosCmp = b.sodos.compareTo(a.sodos);
+            if (sodosCmp != 0) return sodosCmp;
 
             if (a.defeatedOpponents.contains(b.id)) return -1;
             if (b.defeatedOpponents.contains(a.id)) return 1;
@@ -545,11 +548,11 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             final wB = internalWins[b.id]!;
             if (wA != wB) return wB.compareTo(wA);
 
-            final sodosCmp = b.sodos.compareTo(a.sodos);
-            if (sodosCmp != 0) return sodosCmp;
+            final sososCmp = b.sosos.compareTo(a.sosos);
+            if (sososCmp != 0) return sososCmp;
 
-            final sosCmp = b.sos.compareTo(a.sos);
-            if (sosCmp != 0) return sosCmp;
+            final cumCmp = b.cumulativeScore.compareTo(a.cumulativeScore);
+            if (cumCmp != 0) return cumCmp;
           } else {
             // 풀리그: 승자승 -> 내부 승수 -> SODOS
             if (a.defeatedOpponents.contains(b.id)) return -1;
@@ -585,7 +588,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                 curr.wins == prev.wins;
 
             if (!isLeague) {
-              isSame = isSame && curr.sos == prev.sos && curr.cumulativeScore == prev.cumulativeScore;
+              isSame = isSame && curr.sos == prev.sos && curr.sosos == prev.sosos && curr.cumulativeScore == prev.cumulativeScore;
             }
 
             if (!isSame) {

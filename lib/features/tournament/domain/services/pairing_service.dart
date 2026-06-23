@@ -10,40 +10,57 @@ class PairingService {
       return PairingResult(pairs: [], round: round);
     }
 
+    // 1. 순위표 정렬: 점수(MMS) ➔ 가산점(SOS) 순
     final List<MacmahonPlayer> workingList = List.from(players);
     workingList.sort((a, b) {
       int mmsComp = b.currentMms.compareTo(a.currentMms);
       if (mmsComp != 0) return mmsComp;
-      int sosComp = b.sos.compareTo(a.sos);
-      if (sosComp != 0) return sosComp;
-      return a.id.compareTo(b.id);
+      return b.sos.compareTo(a.sos);
     });
 
-    // 1. 부전승(BYE) 사전 분리 로직
+    final List<MacmahonPair> pairs = [];
+    final List<MacmahonPlayer> unmatched = List.from(workingList);
+
+    // 2. 직관적 매칭
+    while (unmatched.length >= 2) {
+      final p1 = unmatched.removeAt(0);
+      int partnerIndex = 0;
+
+      // 이미 대국한 상대 회피 (한 칸 미루기)
+      while (partnerIndex < unmatched.length && p1.hasPlayedAgainst(unmatched[partnerIndex].id)) {
+        partnerIndex++;
+      }
+
+      // 남은 전원과 이미 대국했다면 어쩔 수 없이 제일 가까운 바로 뒷사람과 매칭 (에러 방지용)
+      if (partnerIndex == unmatched.length) {
+        partnerIndex = 0;
+      }
+
+      final p2 = unmatched.removeAt(partnerIndex);
+      
+      // 흑백 배정은 점수 기반으로 (기존 로직 유지)
+      final black = p1.currentMms >= p2.currentMms ? p1 : p2;
+      final white = p1.currentMms >= p2.currentMms ? p2 : p1;
+
+      // 직관적 매칭이므로 Cost는 0.0으로 고정
+      pairs.add(MacmahonPair(black: black, white: white, cost: 0.0));
+    }
+
+    // 3. 부전승(BYE) 처리 (홀수라서 1명이 남은 경우)
     MacmahonPlayer? byePlayer;
-    if (workingList.length % 2 != 0) {
-      byePlayer = _findByePlayer(workingList);
-      workingList.removeWhere((p) => p.id == byePlayer!.id);
+    if (unmatched.isNotEmpty) {
+      byePlayer = unmatched.first;
     }
-
-    if (workingList.isEmpty) {
-      return PairingResult(
-        pairs: [],
-        round: round,
-        byePlayers: byePlayer != null ? [byePlayer] : [],
-      );
-    }
-
-    // 2. 완벽 매칭 (DFS 백트래킹)
-    List<MacmahonPair> bestMatches = _generatePerfectPairing(workingList);
 
     return PairingResult(
-      pairs: bestMatches,
+      pairs: pairs,
       round: round,
       byePlayers: byePlayer != null ? [byePlayer] : [],
     );
   }
 
+  /*
+  // --- 기존 DFS 기반 고급 매칭 로직 (직관적 매칭 교체로 비활성화 됨) ---
   MacmahonPlayer _findByePlayer(List<MacmahonPlayer> players) {
     // 1. 부전승 후보: 이미 부전승 경험이 있는 선수 제외
     final candidates = players.where((p) => !p.opponents.contains('__dummy__')).toList();
@@ -159,6 +176,7 @@ class PairingService {
     }
     return pairs;
   }
+  */
 
   PairingResult generateLeaguePairing({
     required List<MacmahonPlayer> players,

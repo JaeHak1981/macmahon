@@ -105,6 +105,7 @@ class MacmahonPlayer {
   final int draws;
   final double sos;
   final double sodos;
+  final double sosos;
   final double cumulativeScore;
   final String? groupId;
 
@@ -123,6 +124,7 @@ class MacmahonPlayer {
     this.draws = 0,
     this.sos = 0.0,
     this.sodos = 0.0,
+    this.sosos = 0.0,
     this.cumulativeScore = 0.0,
     this.groupId,
   });
@@ -142,6 +144,7 @@ class MacmahonPlayer {
     int? draws,
     double? sos,
     double? sodos,
+    double? sosos,
     double? cumulativeScore,
     String? groupId,
   }) {
@@ -160,6 +163,7 @@ class MacmahonPlayer {
       draws: draws ?? this.draws,
       sos: sos ?? this.sos,
       sodos: sodos ?? this.sodos,
+      sosos: sosos ?? this.sosos,
       cumulativeScore: cumulativeScore ?? this.cumulativeScore,
       groupId: groupId ?? this.groupId,
     );

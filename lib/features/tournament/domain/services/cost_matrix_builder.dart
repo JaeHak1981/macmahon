@@ -18,11 +18,11 @@ class CostMatrixBuilder {
     // 1. MMS 점수 차이 (가장 기본 비용)
     // 점수 차이가 많이 날수록 높은 비용 부여
     final double mmsDiff = (a.currentMms - b.currentMms).abs();
-    cost += mmsDiff * 100;
+    cost += mmsDiff * 10000;
 
     // 2. 리매치 방지 (매우 높은 패널티)
     if (a.hasPlayedAgainst(b.id)) {
-      cost += 10000;
+      cost += 1000000;
     }
 
     // 3. 플로팅 보상 (직전 라운드 플로팅 결과 고려)

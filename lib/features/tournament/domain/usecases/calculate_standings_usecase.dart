@@ -84,7 +84,7 @@ class CalculateStandingsUseCase {
     }).toList();
   }
 
-  /// 타이브레이커(SOS, SODOS) 계산
+  /// 타이브레이커(SOS, SODOS, SOSOS) 계산
   List<MacmahonPlayer> calculateTieBreakers(
     List<MacmahonPlayer> sectionPlayers, 
     List<MacmahonPlayer> allPlayers,
@@ -97,7 +97,8 @@ class CalculateStandingsUseCase {
       idMap[p.id] = p;
     }
 
-    return sectionPlayers.map((p) {
+    // 1차: SOS, SODOS 계산
+    final List<MacmahonPlayer> step1Players = sectionPlayers.map((p) {
       double sos = 0;
       for (final oId in p.opponents) {
         final o = idMap[oId];
@@ -109,6 +110,21 @@ class CalculateStandingsUseCase {
         if (o != null && o.id != p.id) sodos += o.currentMms;
       }
       return p.copyWith(sos: sos, sodos: sodos);
+    }).toList();
+
+    // idMap에 업데이트된 SOS 값 반영
+    for (final p in step1Players) {
+      idMap[p.id] = p;
+    }
+
+    // 2차: SOSOS 계산
+    return step1Players.map((p) {
+      double sosos = 0;
+      for (final oId in p.opponents) {
+        final o = idMap[oId];
+        if (o != null && o.id != p.id) sosos += o.sos;
+      }
+      return p.copyWith(sosos: sosos);
     }).toList();
   }
 
