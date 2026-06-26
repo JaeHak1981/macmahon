@@ -112,8 +112,20 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
               unselectedLabelColor: AppTheme.textSecondary,
             ),
       actions: [
-        if (!isFinished && !isLeagueStage) ...[
-          if (allResultsEntered)
+        if (!isFinished) ...[
+          if (isLeagueStage && currentPairing == null)
+            TextButton.icon(
+              onPressed: () => _handleGeneratePairing(context, ref),
+              icon: const Icon(Icons.play_circle_fill, color: Colors.orange),
+              label: const Text('리그전 시작', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+            )
+          else if (isLeagueStage && allResultsEntered && currentPairing != null)
+            TextButton.icon(
+              onPressed: () => _handleAdvanceAndPairing(context, ref, true),
+              icon: const Icon(Icons.emoji_events, color: Colors.blue),
+              label: const Text('대회 종료 및 확정', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            )
+          else if (!isLeagueStage && allResultsEntered)
             TextButton.icon(
               onPressed: () => _handleAdvanceAndPairing(context, ref, isLastRound),
               icon: Icon(isLastRound ? Icons.emoji_events : Icons.bolt,
@@ -123,11 +135,11 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
                 style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
               ),
             )
-          else if (currentPairing == null)
+          else if (!isLeagueStage && currentPairing == null)
             TextButton.icon(
               onPressed: () => _handleGeneratePairing(context, ref),
               icon: const Icon(Icons.bolt, color: Colors.orange),
-              label: const Text('대진 생성', style: TextStyle(color: Colors.orange)),
+              label: const Text('대진 생성', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
             ),
         ],
         IconButton(
@@ -421,20 +433,70 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
   }
 
   Future<void> _handleGeneratePairing(BuildContext context, WidgetRef ref) async {
+    final state = ref.read(macmahonProvider);
+    final isLeague = state.format == TournamentFormat.league || state.format == TournamentFormat.leagueAndKnockout;
+    bool isSequential = true; // 기본값 등록순
+    
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('다음 대진 생성'),
-        content: const Text('다음 라운드 대진을 자동으로 생성하시겠습니까?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('생성하기')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(isLeague ? '리그전 시작' : '다음 대진 생성'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(isLeague ? '리그전 대진표를 생성하고 대회를 시작하시겠습니까?' : '다음 라운드 대진을 자동으로 생성하시겠습니까?'),
+              if (!isLeague && state.currentRound == 1) ...[
+                const SizedBox(height: 16),
+                const Text('1라운드 매칭 방식', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('등록순 (1-2, 3-4)'),
+                      selected: isSequential,
+                      selectedColor: AppTheme.primary,
+                      backgroundColor: Colors.grey[200],
+                      checkmarkColor: AppTheme.surface,
+                      labelStyle: TextStyle(
+                        color: isSequential ? AppTheme.surface : AppTheme.textPrimary,
+                        fontWeight: isSequential ? FontWeight.w800 : FontWeight.w500,
+                      ),
+                      onSelected: (val) {
+                        if (val) setState(() => isSequential = true);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('무작위 추첨'),
+                      selected: !isSequential,
+                      selectedColor: AppTheme.primary,
+                      backgroundColor: Colors.grey[200],
+                      checkmarkColor: AppTheme.surface,
+                      labelStyle: TextStyle(
+                        color: !isSequential ? AppTheme.surface : AppTheme.textPrimary,
+                        fontWeight: !isSequential ? FontWeight.w800 : FontWeight.w500,
+                      ),
+                      onSelected: (val) {
+                        if (val) setState(() => isSequential = false);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('생성하기')),
+          ],
+        ),
       ),
     );
 
     if (confirmed == true) {
-      await ref.read(macmahonProvider.notifier).generatePairing();
+      await ref.read(macmahonProvider.notifier).generatePairing(isSequentialForR1: isSequential);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('새로운 대진이 생성되었습니다.')),
@@ -608,7 +670,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text(
-          '점수 구조 안내',
+          '순위 결정 규정 안내',
           style: TextStyle(
             fontWeight: FontWeight.w800,
             color: AppTheme.textPrimary,
@@ -619,47 +681,33 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'MMS (내 승점)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
-                  fontSize: 16,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '선수가 이 대회에서 거둔 총 승점(승수)입니다. 똑같이 0점으로 시작한 대회라면, 3승을 했을 때 3점이 됩니다.',
-                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'SOS (대진 난이도)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
-                  fontSize: 16,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '똑같이 3승으로 동점이더라도, 더 어려운 상대들과 싸운 선수를 우대합니다.\n이걸 증명하기 위해 \'내가 만났던 모든 상대들의 승점\'을 합친 타이브레이커 숫자입니다.',
-                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-              ),
-              SizedBox(height: 16),
-              Text(
-                'SODOS (승리 순도)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
-                  fontSize: 16,
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                '만약 SOS까지 똑같은 초유의 동점 사태가 났을 때, 내가 만난 모든 상대가 아니라 오직 \'내가 직접 이긴 상대\'들의 점수만 합쳐서 최종 우열을 가립니다.',
-                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
-              ),
+              Text('[스위스 리그 & 맥마흔 방식]', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 16)),
+              SizedBox(height: 12),
+              Text('1. MMS 점수 (총 승점/승수)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('가장 기본이 되는 점수입니다. (이길 때마다 1점씩 획득하며, 맥마흔 방식의 경우 초기 그룹 핸디캡이 포함됩니다.)', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 8),
+              Text('2. 누진 점수 (Cumulative Score)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('매 라운드 보유했던 승점을 모두 누적 합산한 점수입니다. (초반 라운드부터 빠르게 이겨서 상위권에서 계속 활동한 선수가 유리합니다.)', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 8),
+              Text('3. 승자승 (Head-to-Head)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('동점자들끼리 이전에 맞붙은 적이 있다면, 그 맞대결에서 이긴 선수가 높은 순위를 차지합니다. (3명 이상 동률일 경우, 동률자들 간의 내부 승수가 높은 선수가 우선입니다.)', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 8),
+              Text('4. SODOS 점수 합 (Sum of Defeated Opponents\' Scores)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('내가 \'이긴\' 상대방들이 대회를 진행하며 얻은 승점의 총합입니다. (더 강한 상대를 이겼을수록 점수가 높습니다.)', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 8),
+              Text('5. SOS 점수 합 (Sum of Opponents\' Scores)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('승패와 관계없이 내가 \'만난\' 모든 상대방들이 얻은 승점의 총합입니다. (대진 운이 나빠 강자를 많이 만난 선수를 배려하는 점수입니다.)', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 24),
+              Text('[풀리그 방식]', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo, fontSize: 16)),
+              SizedBox(height: 12),
+              Text('1. 승수 (MMS)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('대회 중 거둔 총 승리 횟수입니다.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 8),
+              Text('2. 승자승 (Head-to-Head)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('동점자끼리의 맞대결 결과 및 내부 승수입니다.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
+              SizedBox(height: 8),
+              Text('3. SODOS 점수 합', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 14)),
+              Text('내가 이긴 상대들의 승점 합산입니다.', style: TextStyle(fontSize: 13, color: AppTheme.textSecondary)),
             ],
           ),
         ),
@@ -668,13 +716,7 @@ class _StandingsScreenState extends ConsumerState<StandingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text(
-              '이해했습니다',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primary,
-              ),
-            ),
+            child: const Text('닫기', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary)),
           ),
         ],
       ),
@@ -960,7 +1002,10 @@ class _ResultGridTab extends StatelessWidget {
       }
       roundPairMaps.add(currentPairMap);
     }
-    final roundsCount = allRounds.length;
+    int roundsCount = allRounds.length;
+    if (state.recommendedRounds > roundsCount) {
+      roundsCount = state.recommendedRounds;
+    }
     const headerGreen = Color(0xFFDCEDC8);
 
     // 순번(playerNum) 기준으로 정렬
@@ -1017,6 +1062,7 @@ class _ResultGridTab extends StatelessWidget {
                 roundPairMaps,
                 playerRanks[player.id] ?? 0,
                 playerMmsByRound[player.id]!,
+                roundsCount,
               ),
           ],
         ),
@@ -1050,6 +1096,7 @@ class _ResultGridTab extends StatelessWidget {
     List<Map<String, MacmahonPair>> roundPairMaps,
     int rank,
     List<double> mmsHistory,
+    int totalRoundsCount,
   ) {
     return TableRow(
       children: [
@@ -1060,15 +1107,18 @@ class _ResultGridTab extends StatelessWidget {
           minWidth: 100,
           textAlign: TextAlign.center,
         ),
-        for (int r = 0; r < allRounds.length; r++)
-          _buildRoundCell(
-            context,
-            player,
-            allRounds[r],
-            roundPairMaps[r],
-            playerNumbers,
-            mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null,
-          ),
+        for (int r = 0; r < totalRoundsCount; r++)
+          if (r < allRounds.length)
+            _buildRoundCell(
+              context,
+              player,
+              allRounds[r],
+              roundPairMaps[r],
+              playerNumbers,
+              mmsHistory.length > r + 1 ? mmsHistory[r + 1] : null,
+            )
+          else
+            _buildEmptyRoundCell(),
         _GridDataCell(
           player.initialMms.toStringAsFixed(1),
           textAlign: TextAlign.center,
@@ -1179,6 +1229,24 @@ class _ResultGridTab extends StatelessWidget {
               fontSize: markerSize ?? 13,
               bold: true,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyRoundCell() {
+    return Container(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const _GridDataCell('', minWidth: 60),
+          Container(width: 1, height: 72, color: Colors.black),
+          const _GridDataCellWithScore(
+            '',
+            null,
+            color: Colors.transparent,
+            fontSize: 13,
           ),
         ],
       ),

@@ -216,7 +216,7 @@ class CalculateStandingsUseCase {
             wins: bye.wins + 1,
             floatHistory: [...bye.floatHistory, 0],
             opponents: {...bye.opponents, '__dummy__'},
-            results: [...bye.results, 'W'], // 부전승도 일단 'W'로 처리하거나 'B'로 할 수 있음. 기세 흐름상 'W'가 좋음.
+            results: [...bye.results, 'B'], // 부전승을 'B'로 표기하여 자력 승리('W')와 구분
           );
         }
       }

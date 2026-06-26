@@ -21,9 +21,10 @@ class PairingService {
     workingList.sort((a, b) {
       int mmsComp = b.currentMms.compareTo(a.currentMms);
       if (mmsComp != 0) return mmsComp;
-      // 2. 기세(승패 흐름) - 내림차순 (WW > WL > LW > LL)
-      int histComp = b.historyString.compareTo(a.historyString);
-      if (histComp != 0) return histComp;
+      int cumComp = b.cumulativeScore.compareTo(a.cumulativeScore);
+      if (cumComp != 0) return cumComp;
+      int sodosComp = b.sodos.compareTo(a.sodos);
+      if (sodosComp != 0) return sodosComp;
       return b.sos.compareTo(a.sos);
     });
 
@@ -126,15 +127,17 @@ class PairingService {
     int mmsDiff = (p1.currentMms - p2.currentMms).abs().toInt();
     cost += mmsDiff * 1000;
     
-    // 2. 기세(History) 다름 벌점
-    if (p1.historyString != p2.historyString) {
-      cost += 100;
-    }
-    
-    // 3. 거리 벌점 (원래 정렬된 리스트에서의 인덱스 차이)
+    // 2. 거리 벌점 (원래 정렬된 리스트에서의 인덱스 차이)
+    // 순위표 상에서 인접한 사람을 가장 강력하게 우선시 (가중치 100)
     int idx1 = originalList.indexOf(p1);
     int idx2 = originalList.indexOf(p2);
-    cost += (idx1 - idx2).abs();
+    cost += (idx1 - idx2).abs() * 100;
+
+    // 3. 기세(History) 미세 벌점
+    // 거리가 같을 경우, 부전승('B')과 자력승('W')을 구분하여 완벽히 똑같은 기세인 사람끼리 묶어줌 (가중치 10)
+    if (p1.historyString != p2.historyString) {
+      cost += 10;
+    }
     
     return cost;
   }
