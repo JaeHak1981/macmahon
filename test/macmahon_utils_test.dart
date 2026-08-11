@@ -20,7 +20,7 @@ void main() {
     test('Top Bar 기준 추천 라운드 계산', () {
       // 전체 인원은 100명이지만, 우승 가능권(Top Bar)이 8명뿐인 경우
       expect(MacmahonUtils.calculateRecommendedRounds(100, topBarCount: 8), 3);
-      
+
       // Top Bar가 16명인 경우
       expect(MacmahonUtils.calculateRecommendedRounds(100, topBarCount: 16), 4);
     });

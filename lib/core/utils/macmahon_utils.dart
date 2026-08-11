@@ -15,7 +15,7 @@ class MacmahonUtils {
   /// 3. 맥마흔 시스템은 스위스 리그보다 효율적이므로, 인원이 많아도 적절한 대국 수를 보장합니다.
   static int calculateRecommendedRounds(int playerCount, {int? topBarCount}) {
     if (playerCount <= 1) return 0;
-    
+
     // 1. 전체 인원 기준 최소 라운드 (log2 N)
     int roundsByTotal = (math.log(playerCount) / math.log(2)).ceil();
     if (playerCount >= 4 && roundsByTotal < 3) roundsByTotal = 3;
@@ -24,7 +24,7 @@ class MacmahonUtils {
 
     // 2. Top Bar 기준 라운드 (Top Bar 내에서 우승자를 가리기 위한 최소 라운드)
     int roundsByTopBar = (math.log(topBarCount) / math.log(2)).ceil();
-    
+
     return roundsByTopBar;
   }
 
@@ -43,7 +43,9 @@ class MacmahonUtils {
       groups.putIfAbsent(gId, () => []).add(p);
     }
 
-    final isLeague = format == TournamentFormat.league || format == TournamentFormat.leagueAndKnockout;
+    final isLeague =
+        format == TournamentFormat.league ||
+        format == TournamentFormat.leagueAndKnockout;
     final sortedGroupIds = groups.keys.toList()..sort();
 
     for (var gId in sortedGroupIds) {
@@ -131,13 +133,17 @@ class MacmahonUtils {
             final prev = tiedPlayers[i - 1];
             final curr = tiedPlayers[i];
 
-            bool isSame = internalWins[curr.id] == internalWins[prev.id] &&
+            bool isSame =
+                internalWins[curr.id] == internalWins[prev.id] &&
                 curr.sodos == prev.sodos &&
                 curr.initialMms == prev.initialMms &&
                 curr.wins == prev.wins;
 
             if (!isLeague) {
-              isSame = isSame && curr.sos == prev.sos && curr.cumulativeScore == prev.cumulativeScore;
+              isSame =
+                  isSame &&
+                  curr.sos == prev.sos &&
+                  curr.cumulativeScore == prev.cumulativeScore;
             }
 
             if (!isSame) {
@@ -164,13 +170,13 @@ class MacmahonUtils {
     if (format == TournamentFormat.league || stage == 1) {
       return '$currentRound라운드';
     }
-    
+
     // 2. 토너먼트인 경우 (knockout 또는 stage 2)
     final remainingRounds = totalRounds - currentRound;
-    
+
     if (remainingRounds == 0) return '결승전';
     if (remainingRounds == 1) return '준결승(4강)';
-    
+
     // 남은 라운드 수에 따른 강수 계산 (2^(남은라운드+1))
     final stageNum = math.pow(2, remainingRounds + 1).toInt();
     return '$stageNum강전';

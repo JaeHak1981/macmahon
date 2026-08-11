@@ -40,7 +40,7 @@ class ManageKnockoutUseCase {
       clearCurrentPairing: true,
       knockoutQualifiers: [],
     );
-    
+
     final newState = state.copyWith(sectionData: newSectionData);
     return _calculateStandingsUseCase.execute(newState);
   }

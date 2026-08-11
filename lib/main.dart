@@ -7,11 +7,7 @@ import 'features/tournament/presentation/screens/lock_screen.dart';
 import 'features/tournament/presentation/screens/home_screen.dart';
 
 void main() {
-  runApp(
-    const ProviderScope(
-      child: MacmahonApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MacmahonApp()));
 }
 
 class MacmahonApp extends StatelessWidget {
@@ -31,9 +27,7 @@ class MacmahonApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('ko', 'KR'),
-      ],
+      supportedLocales: const [Locale('ko', 'KR')],
       home: isExpired ? const LockScreen() : const HomeScreen(),
     );
   }

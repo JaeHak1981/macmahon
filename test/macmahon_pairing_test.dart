@@ -7,13 +7,17 @@ void main() {
   group('CostMatrixBuilder 테스트', () {
     test('리매치는 패널티(10000) 추가', () {
       final a = MacmahonPlayer(
-        id: 'P1', name: '홍길동',
-        initialMms: 4, currentMms: 4,
+        id: 'P1',
+        name: '홍길동',
+        initialMms: 4,
+        currentMms: 4,
         opponents: {'P2'},
       );
       final b = MacmahonPlayer(
-        id: 'P2', name: '김철수',
-        initialMms: 4, currentMms: 4,
+        id: 'P2',
+        name: '김철수',
+        initialMms: 4,
+        currentMms: 4,
         opponents: {'P1'},
       );
 
@@ -23,12 +27,16 @@ void main() {
 
     test('같은 MMS 동점 매칭 비용 = 0 (안티그래비티 기록 없을 때)', () {
       final a = MacmahonPlayer(
-        id: 'P1', name: '홍길동',
-        initialMms: 4, currentMms: 4,
+        id: 'P1',
+        name: '홍길동',
+        initialMms: 4,
+        currentMms: 4,
       );
       final b = MacmahonPlayer(
-        id: 'P2', name: '김철수',
-        initialMms: 4, currentMms: 4,
+        id: 'P2',
+        name: '김철수',
+        initialMms: 4,
+        currentMms: 4,
       );
 
       final cost = CostMatrixBuilder.calculateCost(a, b);
@@ -37,12 +45,16 @@ void main() {
 
     test('MMS 2점 차이 → 비용 200 (2 × 100)', () {
       final a = MacmahonPlayer(
-        id: 'P1', name: '홍길동',
-        initialMms: 5, currentMms: 5,
+        id: 'P1',
+        name: '홍길동',
+        initialMms: 5,
+        currentMms: 5,
       );
       final b = MacmahonPlayer(
-        id: 'P2', name: '김철수',
-        initialMms: 3, currentMms: 3,
+        id: 'P2',
+        name: '김철수',
+        initialMms: 3,
+        currentMms: 3,
       );
 
       final cost = CostMatrixBuilder.calculateCost(a, b);
@@ -51,13 +63,17 @@ void main() {
 
     test('직전 Float Down 선수가 하위 선수와 매칭 시 보상 적용 (-20)', () {
       final lower = MacmahonPlayer(
-        id: 'P1', name: '低점수선수',
-        initialMms: 4, currentMms: 4,
+        id: 'P1',
+        name: '低점수선수',
+        initialMms: 4,
+        currentMms: 4,
         floatHistory: [-1], // 직전 Float Down
       );
       final higher = MacmahonPlayer(
-        id: 'P2', name: '高점수선수',
-        initialMms: 5, currentMms: 5,
+        id: 'P2',
+        name: '高점수선수',
+        initialMms: 5,
+        currentMms: 5,
       );
 
       final cost = CostMatrixBuilder.calculateCost(lower, higher);
@@ -67,13 +83,17 @@ void main() {
 
     test('2회 연속 Float Down → 이번도 Float Down = 패널티 500 추가', () {
       final higher = MacmahonPlayer(
-        id: 'P1', name: '高점수선수',
-        initialMms: 5, currentMms: 5,
+        id: 'P1',
+        name: '高점수선수',
+        initialMms: 5,
+        currentMms: 5,
         floatHistory: [-1, -1], // 2회 연속 Float Down
       );
       final lower = MacmahonPlayer(
-        id: 'P2', name: '低점수선수',
-        initialMms: 4, currentMms: 4,
+        id: 'P2',
+        name: '低점수선수',
+        initialMms: 4,
+        currentMms: 4,
       );
 
       final cost = CostMatrixBuilder.calculateCost(higher, lower);
@@ -83,14 +103,18 @@ void main() {
 
     test('Top Bar 선수는 안티그래비티 패널티 제외', () {
       final topBar = MacmahonPlayer(
-        id: 'P1', name: 'TopBar선수',
-        initialMms: 5, currentMms: 5,
+        id: 'P1',
+        name: 'TopBar선수',
+        initialMms: 5,
+        currentMms: 5,
         isTopBar: true,
         floatHistory: [-1, -1], // 2회 연속 Float Down이지만 Top Bar
       );
       final lower = MacmahonPlayer(
-        id: 'P2', name: '低점수선수',
-        initialMms: 4, currentMms: 4,
+        id: 'P2',
+        name: '低점수선수',
+        initialMms: 4,
+        currentMms: 4,
       );
 
       final cost = CostMatrixBuilder.calculateCost(topBar, lower);
@@ -136,21 +160,29 @@ void main() {
     test('안티그래비티: 2회 연속 Float Down 선수는 Float Down 매칭 회피', () {
       // P1이 2회 연속 Float Down → P1은 이번 Float Down 불가
       final p1 = MacmahonPlayer(
-        id: 'P1', name: '연속Down선수',
-        initialMms: 5, currentMms: 5,
+        id: 'P1',
+        name: '연속Down선수',
+        initialMms: 5,
+        currentMms: 5,
         floatHistory: [-1, -1], // 2회 연속 Float Down
       );
       final p2 = MacmahonPlayer(
-        id: 'P2', name: '동점A',
-        initialMms: 5, currentMms: 5,
+        id: 'P2',
+        name: '동점A',
+        initialMms: 5,
+        currentMms: 5,
       );
       final p3 = MacmahonPlayer(
-        id: 'P3', name: '하위A',
-        initialMms: 4, currentMms: 4,
+        id: 'P3',
+        name: '하위A',
+        initialMms: 4,
+        currentMms: 4,
       );
       final p4 = MacmahonPlayer(
-        id: 'P4', name: '하위B',
-        initialMms: 4, currentMms: 4,
+        id: 'P4',
+        name: '하위B',
+        initialMms: 4,
+        currentMms: 4,
       );
 
       final result = service.generatePairing(
@@ -162,32 +194,42 @@ void main() {
       final p1Pair = result.pairs.firstWhere(
         (pair) => pair.black.id == 'P1' || pair.white.id == 'P1',
       );
-      final p1Opponent =
-          p1Pair.black.id == 'P1' ? p1Pair.white : p1Pair.black;
+      final p1Opponent = p1Pair.black.id == 'P1' ? p1Pair.white : p1Pair.black;
 
       // 안티그래비티에 의해 P1은 동점인 P2와 매칭되어야 함
       expect(p1Opponent.id, equals('P2'));
     });
 
     test('이미 부전승을 한 선수는 다음 라운드에서 부전승이 되지 않음 (중복 부전승 방지)', () {
-      final p1 = MacmahonPlayer(id: 'P1', name: 'A', initialMms: 4, currentMms: 4);
-      final p2 = MacmahonPlayer(id: 'P2', name: 'B', initialMms: 4, currentMms: 4);
+      final p1 = MacmahonPlayer(
+        id: 'P1',
+        name: 'A',
+        initialMms: 4,
+        currentMms: 4,
+      );
+      final p2 = MacmahonPlayer(
+        id: 'P2',
+        name: 'B',
+        initialMms: 4,
+        currentMms: 4,
+      );
       final p3 = MacmahonPlayer(
-        id: 'P3', name: 'C',
-        initialMms: 4, currentMms: 4,
+        id: 'P3',
+        name: 'C',
+        initialMms: 4,
+        currentMms: 4,
         opponents: {'__dummy__'}, // P3는 이미 부전승을 했음
       );
 
-      final result = service.generatePairing(
-        players: [p1, p2, p3],
-        round: 2,
-      );
+      final result = service.generatePairing(players: [p1, p2, p3], round: 2);
 
       // P3는 이미 부전승을 했으므로, 이번 부전승(byePlayer)은 P1 또는 P2여야 하고 P3는 아니어야 한다.
       expect(result.byePlayer!.id, isNot(equals('P3')));
       expect(result.pairs.length, equals(1));
       // P3는 페어 중 한 명으로 매칭되어야 한다.
-      final p3Matched = result.pairs.any((pair) => pair.black.id == 'P3' || pair.white.id == 'P3');
+      final p3Matched = result.pairs.any(
+        (pair) => pair.black.id == 'P3' || pair.white.id == 'P3',
+      );
       expect(p3Matched, isTrue);
     });
 
@@ -208,7 +250,7 @@ void main() {
         final result = service.generatePairing(players: players, round: round);
         final byePlayer = result.byePlayer;
         expect(byePlayer, isNotNull);
-        
+
         // 부전승 선수가 기존에 부전승을 한 적이 없는지 확인
         expect(byePlayerIds.contains(byePlayer!.id), isFalse);
         byePlayerIds.add(byePlayer.id);
@@ -216,9 +258,7 @@ void main() {
         // 다음 라운드를 위해 시뮬레이션: 부전승 기록 업데이트
         players = players.map((p) {
           if (p.id == byePlayer.id) {
-            return p.copyWith(
-              opponents: {...p.opponents, '__dummy__'},
-            );
+            return p.copyWith(opponents: {...p.opponents, '__dummy__'});
           }
           return p;
         }).toList();

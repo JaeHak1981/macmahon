@@ -9,10 +9,12 @@ class KnockoutSelectionScreen extends ConsumerStatefulWidget {
   const KnockoutSelectionScreen({super.key});
 
   @override
-  ConsumerState<KnockoutSelectionScreen> createState() => _KnockoutSelectionScreenState();
+  ConsumerState<KnockoutSelectionScreen> createState() =>
+      _KnockoutSelectionScreenState();
 }
 
-class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScreen> {
+class _KnockoutSelectionScreenState
+    extends ConsumerState<KnockoutSelectionScreen> {
   final Set<String> _selectedPlayerIds = {};
   List<MacmahonPlayer> _rankedPlayers = [];
   Map<String, int> _playerRanks = {};
@@ -34,7 +36,11 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
     _rankedPlayers = [];
     _playerRanks = {};
     MacmahonUtils.computeStandings(
-        players, state.format, _rankedPlayers, _playerRanks);
+      players,
+      state.format,
+      _rankedPlayers,
+      _playerRanks,
+    );
 
     // Initial selection: 조별 진출 인원(qualifiersPerGroup) 기준 적용
     _selectedPlayerIds.clear();
@@ -65,7 +71,9 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
 
   // 동률 여부 확인 (순위가 같은 다른 선수가 있는지)
   bool _isTied(String playerId, int rank) {
-    return _rankedPlayers.where((p) => p.id != playerId && _playerRanks[p.id] == rank).isNotEmpty;
+    return _rankedPlayers
+        .where((p) => p.id != playerId && _playerRanks[p.id] == rank)
+        .isNotEmpty;
   }
 
   // 커트라인 동률 경고 여부 확인
@@ -89,17 +97,23 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
   void _confirmSelection() async {
     final state = ref.read(macmahonProvider);
     final qualifierCount = state.currentSectionData.qualifierCount;
-    
+
     if (_selectedPlayerIds.length != qualifierCount) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('본선 진출자는 정확히 $qualifierCount명 선택해야 합니다. (현재 ${_selectedPlayerIds.length}명 선택됨)')),
+        SnackBar(
+          content: Text(
+            '본선 진출자는 정확히 $qualifierCount명 선택해야 합니다. (현재 ${_selectedPlayerIds.length}명 선택됨)',
+          ),
+        ),
       );
       return;
     }
 
     // 1. 본선 스테이지 전환 및 선발 명단 저장
-    ref.read(macmahonProvider.notifier).startKnockoutStage(_selectedPlayerIds.toList());
-    
+    ref
+        .read(macmahonProvider.notifier)
+        .startKnockoutStage(_selectedPlayerIds.toList());
+
     if (!mounted) return;
 
     // 2. 본선 대진표 화면으로 이동 (현재 화면을 대체)
@@ -108,7 +122,7 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
       context,
       MaterialPageRoute(builder: (_) => const BracketScreen()),
     );
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('본선 진출자가 선발되었습니다. 대진 방식을 선택해 주세요.')),
     );
@@ -124,9 +138,23 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
         title: const Text('본선 진출자 선발'),
         actions: [
           TextButton.icon(
-            onPressed: _selectedPlayerIds.length == qualifierCount ? _confirmSelection : null,
-            icon: Icon(Icons.check, color: _selectedPlayerIds.length == qualifierCount ? Colors.white : Colors.white54),
-            label: Text('선발 완료', style: TextStyle(color: _selectedPlayerIds.length == qualifierCount ? Colors.white : Colors.white54)),
+            onPressed: _selectedPlayerIds.length == qualifierCount
+                ? _confirmSelection
+                : null,
+            icon: Icon(
+              Icons.check,
+              color: _selectedPlayerIds.length == qualifierCount
+                  ? Colors.white
+                  : Colors.white54,
+            ),
+            label: Text(
+              '선발 완료',
+              style: TextStyle(
+                color: _selectedPlayerIds.length == qualifierCount
+                    ? Colors.white
+                    : Colors.white54,
+              ),
+            ),
           ),
         ],
       ),
@@ -146,7 +174,10 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
                 ),
                 const SizedBox(width: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -154,22 +185,38 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
                   ),
                   child: Row(
                     children: [
-                      const Text('진출 인원: ', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      const Text(
+                        '진출 인원: ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       DropdownButton<int>(
                         value: qualifierCount,
                         underline: const SizedBox(),
                         isDense: true,
-                        items: [2, 4, 8, 16, 32].map((val) => DropdownMenuItem(
-                          value: val,
-                          child: Text('$val명'),
-                        )).toList(),
+                        items: [2, 4, 8, 16, 32]
+                            .map(
+                              (val) => DropdownMenuItem(
+                                value: val,
+                                child: Text('$val명'),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) {
-                            ref.read(macmahonProvider.notifier).updateSectionSettings(qualifierCount: val);
+                            ref
+                                .read(macmahonProvider.notifier)
+                                .updateSectionSettings(qualifierCount: val);
                             // 인원수 변경 시 선택 상태 초기화 및 재설정
                             setState(() {
                               _selectedPlayerIds.clear();
-                              for (int i = 0; i < _rankedPlayers.length && i < val; i++) {
+                              for (
+                                int i = 0;
+                                i < _rankedPlayers.length && i < val;
+                                i++
+                              ) {
                                 _selectedPlayerIds.add(_rankedPlayers[i].id);
                               }
                             });
@@ -181,10 +228,13 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: _selectedPlayerIds.length == qualifierCount 
-                        ? Colors.green.shade100 
+                    color: _selectedPlayerIds.length == qualifierCount
+                        ? Colors.green.shade100
                         : Colors.red.shade100,
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -192,8 +242,8 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
                     '선택: ${_selectedPlayerIds.length} / $qualifierCount 명',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: _selectedPlayerIds.length == qualifierCount 
-                          ? Colors.green.shade900 
+                      color: _selectedPlayerIds.length == qualifierCount
+                          ? Colors.green.shade900
                           : Colors.red.shade900,
                     ),
                   ),
@@ -202,50 +252,70 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
             ),
           ),
           Expanded(
-            child: _rankedPlayers.isEmpty 
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-              itemCount: _rankedPlayers.length,
-              itemBuilder: (context, index) {
-                final p = _rankedPlayers[index];
-                final rank = _playerRanks[p.id] ?? 0;
-                final isSelected = _selectedPlayerIds.contains(p.id);
-                final tied = _isTied(p.id, rank);
+            child: _rankedPlayers.isEmpty
+                ? const Center(child: CircularProgressIndicator())
+                : ListView.builder(
+                    itemCount: _rankedPlayers.length,
+                    itemBuilder: (context, index) {
+                      final p = _rankedPlayers[index];
+                      final rank = _playerRanks[p.id] ?? 0;
+                      final isSelected = _selectedPlayerIds.contains(p.id);
+                      final tied = _isTied(p.id, rank);
 
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
-                    foregroundColor: isSelected ? Colors.white : Colors.black54,
-                    child: Text('$rank'),
-                  ),
-                  title: Row(
-                    children: [
-                      Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      if (tied)
-                        Container(
-                          margin: const EdgeInsets.only(left: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade100,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '동률',
-                            style: TextStyle(fontSize: 10, color: Colors.orange.shade900, fontWeight: FontWeight.bold),
-                          ),
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isSelected
+                              ? Colors.blue
+                              : Colors.grey.shade300,
+                          foregroundColor: isSelected
+                              ? Colors.white
+                              : Colors.black54,
+                          child: Text('$rank'),
                         ),
-                    ],
+                        title: Row(
+                          children: [
+                            Text(
+                              p.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (tied)
+                              Container(
+                                margin: const EdgeInsets.only(left: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade100,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  '동률',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.orange.shade900,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        subtitle: Text(
+                          '조: ${p.groupId ?? "전체"} | 승점: ${p.currentMms} | 승: ${p.wins} | SODOS: ${p.sodos}',
+                        ),
+                        trailing: Checkbox(
+                          value: isSelected,
+                          onChanged: (_) => _toggleSelection(p.id),
+                        ),
+                        onTap: () => _toggleSelection(p.id),
+                        tileColor: isSelected
+                            ? Colors.blue.withValues(alpha: 0.05)
+                            : null,
+                      );
+                    },
                   ),
-                  subtitle: Text('조: ${p.groupId ?? "전체"} | 승점: ${p.currentMms} | 승: ${p.wins} | SODOS: ${p.sodos}'),
-                  trailing: Checkbox(
-                    value: isSelected,
-                    onChanged: (_) => _toggleSelection(p.id),
-                  ),
-                  onTap: () => _toggleSelection(p.id),
-                  tileColor: isSelected ? Colors.blue.withValues(alpha: 0.05) : null,
-                );
-              },
-            ),
           ),
           if (_hasCutoffTie(qualifierCount))
             Container(
@@ -259,7 +329,10 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
                   Expanded(
                     child: Text(
                       '커트라인에 순위가 같은 선수가 있습니다. 추첨 결과를 반영하여 선수를 정확히 선택해 주세요.',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -273,14 +346,21 @@ class _KnockoutSelectionScreenState extends ConsumerState<KnockoutSelectionScree
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton.icon(
-                  onPressed: _selectedPlayerIds.length == qualifierCount ? _confirmSelection : null,
+                  onPressed: _selectedPlayerIds.length == qualifierCount
+                      ? _confirmSelection
+                      : null,
                   icon: const Icon(Icons.check_circle),
-                  label: const Text('선발 완료 및 본선 대진 생성', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  label: const Text(
+                    '선발 완료 및 본선 대진 생성',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue.shade700,
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: Colors.grey.shade300,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),

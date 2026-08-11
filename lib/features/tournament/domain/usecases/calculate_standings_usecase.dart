@@ -6,7 +6,8 @@ class CalculateStandingsUseCase {
   /// 전체 상태를 바탕으로 순위를 재계산합니다.
   MacmahonState execute(MacmahonState state) {
     final currentData = state.currentSectionData;
-    final isLeague = state.format == TournamentFormat.league ||
+    final isLeague =
+        state.format == TournamentFormat.league ||
         (state.format == TournamentFormat.leagueAndKnockout &&
             state.stage == 1);
 
@@ -16,22 +17,29 @@ class CalculateStandingsUseCase {
       if (currentData.currentPairing != null) {
         allPairs.addAll(currentData.currentPairing!.pairs);
       }
-      updatedSectionPlayers = calculateLeagueStandings(allPairs, state.currentSectionPlayers);
+      updatedSectionPlayers = calculateLeagueStandings(
+        allPairs,
+        state.currentSectionPlayers,
+      );
     } else {
       final List<PairingResult> allResults = [...currentData.history];
       if (currentData.currentPairing != null) {
         allResults.add(currentData.currentPairing!);
       }
-      final replayed =
-          calculatePlayersFromHistory(allResults, state.currentSectionPlayers, state.format, state.stage);
+      final replayed = calculatePlayersFromHistory(
+        allResults,
+        state.currentSectionPlayers,
+        state.format,
+        state.stage,
+      );
       updatedSectionPlayers = calculateTieBreakers(replayed, state.players);
     }
 
     // 전역 선수 명단 업데이트
     final Map<String, MacmahonPlayer> updateMap = {
-      for (final p in updatedSectionPlayers) p.id: p
+      for (final p in updatedSectionPlayers) p.id: p,
     };
-    
+
     return state.copyWith(
       players: state.players.map((p) => updateMap[p.id] ?? p).toList(),
     );
@@ -39,7 +47,7 @@ class CalculateStandingsUseCase {
 
   /// 리그전 순위 계산
   List<MacmahonPlayer> calculateLeagueStandings(
-    List<MacmahonPair> allPairs, 
+    List<MacmahonPair> allPairs,
     List<MacmahonPlayer> sectionPlayers,
   ) {
     final Map<String, _LeagueStat> stats = {
@@ -87,11 +95,11 @@ class CalculateStandingsUseCase {
 
   /// 타이브레이커(SOS, SODOS, SOSOS) 계산
   List<MacmahonPlayer> calculateTieBreakers(
-    List<MacmahonPlayer> sectionPlayers, 
+    List<MacmahonPlayer> sectionPlayers,
     List<MacmahonPlayer> allPlayers,
   ) {
     final Map<String, MacmahonPlayer> idMap = {
-      for (final p in allPlayers) p.id: p
+      for (final p in allPlayers) p.id: p,
     };
     // 현재 섹션 선수들의 최신 상태로 덮어쓰기
     for (final p in sectionPlayers) {
@@ -131,13 +139,14 @@ class CalculateStandingsUseCase {
 
   /// 히스토리를 바탕으로 선수들의 상태(승무패, MMS 등)를 복원/계산
   List<MacmahonPlayer> calculatePlayersFromHistory(
-    List<PairingResult> history, 
+    List<PairingResult> history,
     List<MacmahonPlayer> sectionPlayers,
     TournamentFormat format,
     int stage,
   ) {
-    final isLeagueBase = format == TournamentFormat.league || 
-                        (format == TournamentFormat.leagueAndKnockout && stage == 1);
+    final isLeagueBase =
+        format == TournamentFormat.league ||
+        (format == TournamentFormat.leagueAndKnockout && stage == 1);
 
     final Map<String, MacmahonPlayer> playerMap = {
       for (final p in sectionPlayers)
@@ -151,7 +160,7 @@ class CalculateStandingsUseCase {
           floatHistory: [],
           cumulativeScore: 0.0,
           results: [],
-        )
+        ),
     };
 
     for (final roundResult in history) {
@@ -169,7 +178,7 @@ class CalculateStandingsUseCase {
           opponents: {...w.opponents, b.id},
           floatHistory: [...w.floatHistory, pair.whiteFloatResult],
         );
-        
+
         final updatedB = playerMap[b.id]!;
         final updatedW = playerMap[w.id]!;
 

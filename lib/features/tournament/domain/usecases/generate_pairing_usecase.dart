@@ -31,45 +31,71 @@ class GeneratePairingUseCase {
       // (그렇지 않으면 동일 라운드에서 여러 번 추천 로직을 돌릴 때마다 리매치 패널티가 누적되어 매번 다른 상대가 매칭되는 현상 발생)
       List<MacmahonPlayer> cleanPlayers = sectionPlayers;
       if (currentData.currentPairing != null) {
-        cleanPlayers = _revertPairingFromPlayers(sectionPlayers, currentData.currentPairing!);
+        cleanPlayers = _revertPairingFromPlayers(
+          sectionPlayers,
+          currentData.currentPairing!,
+        );
       }
 
       // 2. 대진 생성
-      if (format == TournamentFormat.league || (format == TournamentFormat.leagueAndKnockout && currentData.stage == 1)) {
+      if (format == TournamentFormat.league ||
+          (format == TournamentFormat.leagueAndKnockout &&
+              currentData.stage == 1)) {
         if (currentData.groupCount > 1) {
           result = _pairingService.generateGroupLeaguePairing(
-              players: sectionPlayers, round: currentRound);
+            players: sectionPlayers,
+            round: currentRound,
+          );
         } else {
-          result = _pairingService.generateAllLeagueMatches(players: sectionPlayers);
+          result = _pairingService.generateAllLeagueMatches(
+            players: sectionPlayers,
+          );
         }
-      } else if (format == TournamentFormat.knockout || (format == TournamentFormat.leagueAndKnockout && currentData.stage == 2)) {
+      } else if (format == TournamentFormat.knockout ||
+          (format == TournamentFormat.leagueAndKnockout &&
+              currentData.stage == 2)) {
         // 본선 생존자 계산 로직
         final survivors = _getKnockoutSurvivors(
-          sectionPlayers, 
-          currentData.history, 
-          currentData.knockoutQualifiers
+          sectionPlayers,
+          currentData.history,
+          currentData.knockoutQualifiers,
         );
-        result = _pairingService.generateKnockoutPairing(players: survivors, round: currentRound);
+        result = _pairingService.generateKnockoutPairing(
+          players: survivors,
+          round: currentRound,
+        );
       } else {
         if (currentRound == 1 && isSequentialForR1) {
           result = _generateSequentialPairing(cleanPlayers);
         } else {
-          result = await Future(() => _pairingService.generatePairing(players: cleanPlayers, round: currentRound));
+          result = await Future(
+            () => _pairingService.generatePairing(
+              players: cleanPlayers,
+              round: currentRound,
+            ),
+          );
         }
       }
 
       // 3. 대진 기록 반영 (Immutable하게 선수들 업데이트)
-      final updatedSectionPlayers = _applyPairingToPlayers(cleanPlayers, result);
-      
+      final updatedSectionPlayers = _applyPairingToPlayers(
+        cleanPlayers,
+        result,
+      );
+
       // 4. 상태 업데이트
       final Map<String, MacmahonPlayer> updateMap = {
-        for (final p in updatedSectionPlayers) p.id: p
+        for (final p in updatedSectionPlayers) p.id: p,
       };
-      final allPlayers = state.players.map((p) => updateMap[p.id] ?? p).toList();
+      final allPlayers = state.players
+          .map((p) => updateMap[p.id] ?? p)
+          .toList();
 
       final newSectionData = Map<String, SectionData>.from(state.sectionData);
-      newSectionData[state.selectedSection] = currentData.copyWith(currentPairing: result);
-      
+      newSectionData[state.selectedSection] = currentData.copyWith(
+        currentPairing: result,
+      );
+
       return state.copyWith(
         sectionData: newSectionData,
         players: allPlayers,
@@ -87,19 +113,30 @@ class GeneratePairingUseCase {
     MacmahonPlayer? bye;
     if (workingList.length % 2 != 0) bye = workingList.removeLast();
     for (int i = 0; i < workingList.length; i += 2) {
-      pairs.add(MacmahonPair(black: workingList[i], white: workingList[i + 1], cost: 0));
+      pairs.add(
+        MacmahonPair(black: workingList[i], white: workingList[i + 1], cost: 0),
+      );
     }
-    return PairingResult(pairs: pairs, round: 1, byePlayers: bye != null ? [bye] : []);
+    return PairingResult(
+      pairs: pairs,
+      round: 1,
+      byePlayers: bye != null ? [bye] : [],
+    );
   }
 
   /// 대진 결과를 선수들의 기록에 반영 (Immutable)
-  List<MacmahonPlayer> _applyPairingToPlayers(List<MacmahonPlayer> players, PairingResult result) {
-    final Map<String, MacmahonPlayer> playerMap = {for (final p in players) p.id: p};
-    
+  List<MacmahonPlayer> _applyPairingToPlayers(
+    List<MacmahonPlayer> players,
+    PairingResult result,
+  ) {
+    final Map<String, MacmahonPlayer> playerMap = {
+      for (final p in players) p.id: p,
+    };
+
     for (final pair in result.pairs) {
       final b = playerMap[pair.black.id]!;
       final w = playerMap[pair.white.id]!;
-      
+
       playerMap[b.id] = b.copyWith(
         opponents: {...b.opponents, w.id},
         floatHistory: [...b.floatHistory, pair.blackFloatResult],
@@ -122,29 +159,36 @@ class GeneratePairingUseCase {
   }
 
   /// 대진 결과를 취소하여 선수들의 기록에서 롤백 (재생성 전 정화 작업)
-  List<MacmahonPlayer> _revertPairingFromPlayers(List<MacmahonPlayer> players, PairingResult result) {
-    final Map<String, MacmahonPlayer> playerMap = {for (final p in players) p.id: p};
-    
+  List<MacmahonPlayer> _revertPairingFromPlayers(
+    List<MacmahonPlayer> players,
+    PairingResult result,
+  ) {
+    final Map<String, MacmahonPlayer> playerMap = {
+      for (final p in players) p.id: p,
+    };
+
     for (final pair in result.pairs) {
       final b = playerMap[pair.black.id];
       final w = playerMap[pair.white.id];
-      
+
       if (b != null) {
-        final newOpponents = Set<String>.from(b.opponents)..remove(pair.white.id);
+        final newOpponents = Set<String>.from(b.opponents)
+          ..remove(pair.white.id);
         final newFloatHistory = List<int>.from(b.floatHistory);
         if (newFloatHistory.isNotEmpty) newFloatHistory.removeLast();
-        
+
         playerMap[b.id] = b.copyWith(
           opponents: newOpponents,
           floatHistory: newFloatHistory,
         );
       }
-      
+
       if (w != null) {
-        final newOpponents = Set<String>.from(w.opponents)..remove(pair.black.id);
+        final newOpponents = Set<String>.from(w.opponents)
+          ..remove(pair.black.id);
         final newFloatHistory = List<int>.from(w.floatHistory);
         if (newFloatHistory.isNotEmpty) newFloatHistory.removeLast();
-        
+
         playerMap[w.id] = w.copyWith(
           opponents: newOpponents,
           floatHistory: newFloatHistory,
@@ -158,7 +202,7 @@ class GeneratePairingUseCase {
         final newOpponents = Set<String>.from(b.opponents)..remove('__dummy__');
         final newFloatHistory = List<int>.from(b.floatHistory);
         if (newFloatHistory.isNotEmpty) newFloatHistory.removeLast();
-        
+
         playerMap[bye.id] = b.copyWith(
           opponents: newOpponents,
           floatHistory: newFloatHistory,
@@ -171,19 +215,22 @@ class GeneratePairingUseCase {
 
   /// 본선 생존자 추출 (Stage 2 전용)
   List<MacmahonPlayer> _getKnockoutSurvivors(
-    List<MacmahonPlayer> players, 
-    List<PairingResult> history, 
-    List<String> knockoutQualifiers
+    List<MacmahonPlayer> players,
+    List<PairingResult> history,
+    List<String> knockoutQualifiers,
   ) {
     // 1. 본선 진출자 명단이 비어있지 않다면 필터링 기준이 됨
     final survivorIds = <String>{};
-    
+
     // 2. 히스토리에서 본선 경기만 필터링
     final List<PairingResult> knockoutHistory = history.where((r) {
       if (knockoutQualifiers.isEmpty) return true;
       // 모든 선수가 진출자 명단에 있는 라운드만 본선으로 간주
-      return r.pairs.every((p) => 
-        knockoutQualifiers.contains(p.black.id) && knockoutQualifiers.contains(p.white.id));
+      return r.pairs.every(
+        (p) =>
+            knockoutQualifiers.contains(p.black.id) &&
+            knockoutQualifiers.contains(p.white.id),
+      );
     }).toList();
 
     if (knockoutHistory.isEmpty) {

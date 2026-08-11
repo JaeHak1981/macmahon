@@ -13,9 +13,11 @@ class AdvanceRoundUseCase {
 
     final currentData = state.currentSectionData;
     final updatedHistory = [...currentData.history, currentPairing];
-    
-    final isFinished = state.format == TournamentFormat.league || 
-                      (state.format == TournamentFormat.leagueAndKnockout && currentData.stage == 1);
+
+    final isFinished =
+        state.format == TournamentFormat.league ||
+        (state.format == TournamentFormat.leagueAndKnockout &&
+            currentData.stage == 1);
 
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
     newSectionData[state.selectedSection] = currentData.copyWith(
@@ -24,9 +26,9 @@ class AdvanceRoundUseCase {
       clearCurrentPairing: true,
       isFinished: isFinished,
     );
-    
+
     final updatedState = state.copyWith(sectionData: newSectionData);
-    
+
     // 라운드 종료 후 순위 재계산
     return _calculateStandings.execute(updatedState);
   }

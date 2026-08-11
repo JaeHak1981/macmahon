@@ -32,7 +32,7 @@ class MacmahonPlayerModel extends MacmahonPlayer {
       isTopBar: json['isTopBar'] as bool? ?? false,
       floatHistory: List<int>.from(json['floatHistory'] as List),
       opponents: Set<String>.from(json['opponents'] as List),
-      defeatedOpponents: json['defeatedOpponents'] != null 
+      defeatedOpponents: json['defeatedOpponents'] != null
           ? Set<String>.from(json['defeatedOpponents'] as List)
           : {},
       wins: (json['wins'] as num?)?.toInt() ?? 0,
@@ -46,23 +46,23 @@ class MacmahonPlayerModel extends MacmahonPlayer {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'section': section,
-        'initialMms': initialMms,
-        'currentMms': currentMms,
-        'isTopBar': isTopBar,
-        'floatHistory': floatHistory,
-        'opponents': opponents.toList(),
-        'defeatedOpponents': defeatedOpponents.toList(),
-        'wins': wins,
-        'losses': losses,
-        'draws': draws,
-        'sos': sos,
-        'sodos': sodos,
-        'cumulativeScore': cumulativeScore,
-        'groupId': groupId,
-      };
+    'id': id,
+    'name': name,
+    'section': section,
+    'initialMms': initialMms,
+    'currentMms': currentMms,
+    'isTopBar': isTopBar,
+    'floatHistory': floatHistory,
+    'opponents': opponents.toList(),
+    'defeatedOpponents': defeatedOpponents.toList(),
+    'wins': wins,
+    'losses': losses,
+    'draws': draws,
+    'sos': sos,
+    'sodos': sodos,
+    'cumulativeScore': cumulativeScore,
+    'groupId': groupId,
+  };
 
   factory MacmahonPlayerModel.fromEntity(MacmahonPlayer entity) {
     return MacmahonPlayerModel(
@@ -95,7 +95,10 @@ class MacmahonPairModel extends MacmahonPair {
     super.isResultEntered,
   });
 
-  factory MacmahonPairModel.fromJson(Map<String, dynamic> json, List<MacmahonPlayer> players) {
+  factory MacmahonPairModel.fromJson(
+    Map<String, dynamic> json,
+    List<MacmahonPlayer> players,
+  ) {
     return MacmahonPairModel(
       black: players.firstWhere((p) => p.id == json['blackId']),
       white: players.firstWhere((p) => p.id == json['whiteId']),
@@ -106,12 +109,12 @@ class MacmahonPairModel extends MacmahonPair {
   }
 
   Map<String, dynamic> toJson() => {
-        'blackId': black.id,
-        'whiteId': white.id,
-        'cost': cost,
-        'winnerId': winnerId,
-        'isResultEntered': isResultEntered,
-      };
+    'blackId': black.id,
+    'whiteId': white.id,
+    'cost': cost,
+    'winnerId': winnerId,
+    'isResultEntered': isResultEntered,
+  };
 
   static MacmahonPairModel fromEntity(MacmahonPair entity) {
     return MacmahonPairModel(
@@ -131,13 +134,18 @@ class PairingResultModel extends PairingResult {
     super.byePlayers,
   });
 
-  factory PairingResultModel.fromJson(Map<String, dynamic> json, List<MacmahonPlayer> players) {
+  factory PairingResultModel.fromJson(
+    Map<String, dynamic> json,
+    List<MacmahonPlayer> players,
+  ) {
     final byePlayerIds = json['byePlayerIds'] as List?;
     final byePlayerId = json['byePlayerId'];
-    
+
     List<MacmahonPlayer> byes = [];
     if (byePlayerIds != null) {
-      byes = byePlayerIds.map((id) => players.firstWhere((p) => p.id == id)).toList();
+      byes = byePlayerIds
+          .map((id) => players.firstWhere((p) => p.id == id))
+          .toList();
     } else if (byePlayerId != null) {
       byes = [players.firstWhere((p) => p.id == byePlayerId)];
     }
@@ -152,10 +160,12 @@ class PairingResultModel extends PairingResult {
   }
 
   Map<String, dynamic> toJson() => {
-        'round': round,
-        'byePlayerIds': byePlayers.map((p) => p.id).toList(),
-        'pairs': pairs.map((p) => MacmahonPairModel.fromEntity(p).toJson()).toList(),
-      };
+    'round': round,
+    'byePlayerIds': byePlayers.map((p) => p.id).toList(),
+    'pairs': pairs
+        .map((p) => MacmahonPairModel.fromEntity(p).toJson())
+        .toList(),
+  };
 
   static PairingResultModel fromEntity(PairingResult entity) {
     return PairingResultModel(
@@ -183,7 +193,10 @@ class SectionDataModel extends SectionData {
     super.bracketStyle,
   });
 
-  factory SectionDataModel.fromJson(Map<String, dynamic> json, List<MacmahonPlayer> allPlayers) {
+  factory SectionDataModel.fromJson(
+    Map<String, dynamic> json,
+    List<MacmahonPlayer> allPlayers,
+  ) {
     return SectionDataModel(
       history: (json['history'] as List? ?? [])
           .map((h) => PairingResultModel.fromJson(h, allPlayers))
@@ -201,25 +214,30 @@ class SectionDataModel extends SectionData {
       qualifiersPerGroup: (json['qualifiersPerGroup'] as num?)?.toInt() ?? 1,
       knockoutQualifiers: List<String>.from(json['knockoutQualifiers'] ?? []),
       useHeadToHead: json['useHeadToHead'] ?? true,
-      bracketStyle: BracketStyle.values[(json['bracketStyle'] as num?)?.toInt() ?? 0],
+      bracketStyle:
+          BracketStyle.values[(json['bracketStyle'] as num?)?.toInt() ?? 0],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'history': history.map((h) => PairingResultModel.fromEntity(h).toJson()).toList(),
-        'currentPairing': currentPairing != null ? PairingResultModel.fromEntity(currentPairing!).toJson() : null,
-        'currentRound': currentRound,
-        'isFinished': isFinished,
-        'format': format.index,
-        'leagueType': leagueType.index,
-        'stage': stage,
-        'qualifierCount': qualifierCount,
-        'groupCount': groupCount,
-        'qualifiersPerGroup': qualifiersPerGroup,
-        'knockoutQualifiers': knockoutQualifiers,
-        'useHeadToHead': useHeadToHead,
-        'bracketStyle': bracketStyle.index,
-      };
+    'history': history
+        .map((h) => PairingResultModel.fromEntity(h).toJson())
+        .toList(),
+    'currentPairing': currentPairing != null
+        ? PairingResultModel.fromEntity(currentPairing!).toJson()
+        : null,
+    'currentRound': currentRound,
+    'isFinished': isFinished,
+    'format': format.index,
+    'leagueType': leagueType.index,
+    'stage': stage,
+    'qualifierCount': qualifierCount,
+    'groupCount': groupCount,
+    'qualifiersPerGroup': qualifiersPerGroup,
+    'knockoutQualifiers': knockoutQualifiers,
+    'useHeadToHead': useHeadToHead,
+    'bracketStyle': bracketStyle.index,
+  };
 
   static SectionDataModel fromEntity(SectionData entity) {
     return SectionDataModel(
@@ -255,9 +273,13 @@ class MacmahonStateModel extends MacmahonState {
     final players = (json['players'] as List)
         .map((p) => MacmahonPlayerModel.fromJson(p))
         .toList();
-    final sectionData = (json['sectionData'] as Map<String, dynamic>? ?? {}).map(
-      (k, v) => MapEntry(k, SectionDataModel.fromJson(v as Map<String, dynamic>, players)),
-    );
+    final sectionData = (json['sectionData'] as Map<String, dynamic>? ?? {})
+        .map(
+          (k, v) => MapEntry(
+            k,
+            SectionDataModel.fromJson(v as Map<String, dynamic>, players),
+          ),
+        );
     return MacmahonStateModel(
       id: json['id'] as String,
       players: players,
@@ -270,14 +292,18 @@ class MacmahonStateModel extends MacmahonState {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'players': players.map((p) => MacmahonPlayerModel.fromEntity(p).toJson()).toList(),
-        'sectionData': sectionData.map((k, v) => MapEntry(k, SectionDataModel.fromEntity(v).toJson())),
-        'selectedSection': selectedSection,
-        'tournamentName': tournamentName,
-        'tournamentDate': tournamentDate,
-        'tournamentLocation': tournamentLocation,
-      };
+    'id': id,
+    'players': players
+        .map((p) => MacmahonPlayerModel.fromEntity(p).toJson())
+        .toList(),
+    'sectionData': sectionData.map(
+      (k, v) => MapEntry(k, SectionDataModel.fromEntity(v).toJson()),
+    ),
+    'selectedSection': selectedSection,
+    'tournamentName': tournamentName,
+    'tournamentDate': tournamentDate,
+    'tournamentLocation': tournamentLocation,
+  };
 
   static MacmahonStateModel fromEntity(MacmahonState entity) {
     return MacmahonStateModel(

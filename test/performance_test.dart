@@ -7,13 +7,16 @@ void main() {
   group('성능 및 무한 루프 검증 테스트', () {
     test('200명 선수 및 순환 대진 상황에서 순위 계산 검증', () {
       // 1. 선수 생성 (200명)
-      final players = List.generate(200, (i) => MacmahonPlayer(
-        id: 'p$i',
-        name: '선수$i',
-        section: '일반부',
-        initialMms: 40.0 - (i % 10),
-        currentMms: 40.0 - (i % 10),
-      ));
+      final players = List.generate(
+        200,
+        (i) => MacmahonPlayer(
+          id: 'p$i',
+          name: '선수$i',
+          section: '일반부',
+          initialMms: 40.0 - (i % 10),
+          currentMms: 40.0 - (i % 10),
+        ),
+      );
 
       // 2. 순환 승패 관계 강제 설정 (A->B, B->C, C->A)
       // p0 이 p1 을 이김, p1 이 p2 를 이김, p2 가 p0 을 이김
@@ -34,32 +37,39 @@ void main() {
       final ranks = <String, int>{};
 
       final stopwatch = Stopwatch()..start();
-      
+
       // 3. 순위 계산 수행
       MacmahonUtils.computeStandings(
-        players, 
-        TournamentFormat.macmahon, 
-        sorted, 
+        players,
+        TournamentFormat.macmahon,
+        sorted,
         ranks,
         useHeadToHead: true,
       );
-      
+
       stopwatch.stop();
-      
+
       print('순위 계산 소요 시간: ${stopwatch.elapsedMilliseconds}ms');
-      
+
       expect(sorted.length, 200);
-      expect(stopwatch.elapsedMilliseconds, lessThan(100), reason: '순위 계산이 너무 느립니다.');
+      expect(
+        stopwatch.elapsedMilliseconds,
+        lessThan(100),
+        reason: '순위 계산이 너무 느립니다.',
+      );
     });
 
     test('임의의 대량 승패 기록 적용 시 연산 속도 검증', () {
-      final players = List.generate(100, (i) => MacmahonPlayer(
-        id: 'p$i',
-        name: '선수$i',
-        section: '일반부',
-        initialMms: 30.0,
-        currentMms: 30.0,
-      ));
+      final players = List.generate(
+        100,
+        (i) => MacmahonPlayer(
+          id: 'p$i',
+          name: '선수$i',
+          section: '일반부',
+          initialMms: 30.0,
+          currentMms: 30.0,
+        ),
+      );
 
       // 임의로 승리 기록 추가
       for (int i = 0; i < 100; i++) {
@@ -69,7 +79,10 @@ void main() {
           currentOpponents.add('p$opponentIdx');
         }
         players[i] = players[i].copyWith(
-          defeatedOpponents: {...players[i].defeatedOpponents, ...currentOpponents},
+          defeatedOpponents: {
+            ...players[i].defeatedOpponents,
+            ...currentOpponents,
+          },
           wins: players[i].wins + 5,
           currentMms: players[i].currentMms + 5.0,
         );
@@ -79,7 +92,12 @@ void main() {
       final ranks = <String, int>{};
 
       final stopwatch = Stopwatch()..start();
-      MacmahonUtils.computeStandings(players, TournamentFormat.macmahon, sorted, ranks);
+      MacmahonUtils.computeStandings(
+        players,
+        TournamentFormat.macmahon,
+        sorted,
+        ranks,
+      );
       stopwatch.stop();
 
       print('대량 데이터 정렬 소요 시간: ${stopwatch.elapsedMilliseconds}ms');

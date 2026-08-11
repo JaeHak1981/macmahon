@@ -27,8 +27,18 @@ void main() {
     });
 
     test('PairingResult serialization', () {
-      final p1 = MacmahonPlayerModel(id: '1', name: 'P1', initialMms: 10.0, currentMms: 10.0);
-      final p2 = MacmahonPlayerModel(id: '2', name: 'P2', initialMms: 10.0, currentMms: 10.0);
+      final p1 = MacmahonPlayerModel(
+        id: '1',
+        name: 'P1',
+        initialMms: 10.0,
+        currentMms: 10.0,
+      );
+      final p2 = MacmahonPlayerModel(
+        id: '2',
+        name: 'P2',
+        initialMms: 10.0,
+        currentMms: 10.0,
+      );
       final players = [p1, p2];
 
       final pair = MacmahonPairModel(black: p1, white: p2, cost: 0.0);
@@ -44,7 +54,7 @@ void main() {
     group('Round Recommendation Test', () {
       test('calculate recommended rounds', () {
         int getRec(int n) => n < 2 ? 0 : (math.log(n) / math.log(2)).ceil();
-        
+
         expect(getRec(2), 1);
         expect(getRec(4), 2);
         expect(getRec(8), 3);

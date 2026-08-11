@@ -1,14 +1,14 @@
 enum TournamentFormat {
-  undecided,         // 미정
-  macmahon,          // 맥마흔 (스위스 리그 변형)
-  league,            // 풀리그 (Round-robin)
-  knockout,          // 토너먼트 (Single Elimination)
+  undecided, // 미정
+  macmahon, // 맥마흔 (스위스 리그 변형)
+  league, // 풀리그 (Round-robin)
+  knockout, // 토너먼트 (Single Elimination)
   doubleElimination, // 더블 일리미네이션
   leagueAndKnockout, // 풀리그 + 토너먼트
 }
 
 enum LeagueType {
-  normal,            // 일반 풀리그
+  normal, // 일반 풀리그
   doubleElimination, // 더블 일리미네이션
 }
 

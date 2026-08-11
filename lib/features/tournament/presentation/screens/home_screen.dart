@@ -226,10 +226,10 @@ class _SetupViewState extends ConsumerState<_SetupView> {
                         tournamentName = '무제';
                       }
 
-
                       final notifier = ref.read(macmahonProvider.notifier);
-                      final historyNotifier =
-                          ref.read(tournamentHistoryProvider.notifier);
+                      final historyNotifier = ref.read(
+                        tournamentHistoryProvider.notifier,
+                      );
 
                       await notifier.startNewTournament();
                       notifier.updateTournamentInfo(

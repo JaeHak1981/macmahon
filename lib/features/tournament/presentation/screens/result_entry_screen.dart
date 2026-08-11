@@ -18,8 +18,7 @@ class _ResultEntryScreenState extends ConsumerState<ResultEntryScreen> {
   bool get _allResultsEntered {
     final state = ref.read(macmahonProvider);
     final total = state.currentPairs.length;
-    return _results.length == total &&
-        _results.values.every((v) => v != null);
+    return _results.length == total && _results.values.every((v) => v != null);
   }
 
   void _submitResults() {
@@ -62,9 +61,7 @@ class _ResultEntryScreenState extends ConsumerState<ResultEntryScreen> {
     final state = ref.watch(macmahonProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('라운드 ${state.currentRound} 결과 입력'),
-      ),
+      appBar: AppBar(title: Text('라운드 ${state.currentRound} 결과 입력')),
       body: Column(
         children: [
           // ── 안내 배너 ──────────────────────────────────
@@ -82,23 +79,29 @@ class _ResultEntryScreenState extends ConsumerState<ResultEntryScreen> {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: state.currentPairs.length +
-                  (state.byePlayer != null ? 1 : 0),
+              itemCount:
+                  state.currentPairs.length + (state.byePlayer != null ? 1 : 0),
               itemBuilder: (context, index) {
                 // 부전승 타일
                 if (index == state.currentPairs.length) {
                   return Card(
                     child: ListTile(
-                      leading: const Icon(Icons.airline_seat_flat,
-                          color: AppTheme.byeColor),
-                      title: Text(state.byePlayer!.name,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold)),
+                      leading: const Icon(
+                        Icons.airline_seat_flat,
+                        color: AppTheme.byeColor,
+                      ),
+                      title: Text(
+                        state.byePlayer!.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       trailing: const Chip(
-                        label: Text('부전승 +1',
-                            style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white)),
+                        label: Text(
+                          '부전승 +1',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                         backgroundColor: AppTheme.byeColor,
                       ),
                     ),
@@ -125,9 +128,11 @@ class _ResultEntryScreenState extends ConsumerState<ResultEntryScreen> {
                 child: ElevatedButton.icon(
                   onPressed: _allResultsEntered ? _submitResults : null,
                   icon: const Icon(Icons.check),
-                  label: Text(_allResultsEntered
-                      ? '결과 확정 및 다음 라운드'
-                      : '모든 결과를 입력하세요 (${_results.values.where((v) => v != null).length}/${state.currentPairs.length})'),
+                  label: Text(
+                    _allResultsEntered
+                        ? '결과 확정 및 다음 라운드'
+                        : '모든 결과를 입력하세요 (${_results.values.where((v) => v != null).length}/${state.currentPairs.length})',
+                  ),
                 ),
               ),
             ),
@@ -171,24 +176,33 @@ class _ResultTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Center(
-                    child: Text('$boardNumber',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12)),
+                    child: Text(
+                      '$boardNumber',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 _StoneTag(label: '흑', isBlack: true),
                 const SizedBox(width: 6),
-                Text(pair.black.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  pair.black.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(width: 8),
-                const Text('vs',
-                    style: TextStyle(color: AppTheme.textSecondary)),
+                const Text(
+                  'vs',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
                 const SizedBox(width: 8),
-                Text(pair.white.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  pair.white.name,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(width: 6),
                 _StoneTag(label: '백', isBlack: false),
               ],
@@ -265,8 +279,14 @@ class _ResultButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
             borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected 
-                ? [BoxShadow(color: color.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2))]
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.2),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
                 : null,
             border: Border.all(
               color: isSelected ? color : Colors.grey.shade300,
@@ -276,7 +296,11 @@ class _ResultButton extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: isSelected ? color : Colors.grey.shade400, size: 22),
+              Icon(
+                icon,
+                color: isSelected ? color : Colors.grey.shade400,
+                size: 22,
+              ),
               const SizedBox(height: 6),
               RichText(
                 textAlign: TextAlign.center,
@@ -292,8 +316,9 @@ class _ResultButton extends StatelessWidget {
                     TextSpan(
                       text: label,
                       style: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                       ),
                     ),
                     if (suffix.isNotEmpty)
@@ -301,11 +326,10 @@ class _ResultButton extends StatelessWidget {
                         text: ' $suffix',
                         style: TextStyle(
                           fontSize: isSmall ? 11 : 12,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected
-                              ? color
-                              : Colors.grey.shade500,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: isSelected ? color : Colors.grey.shade500,
                         ),
                       ),
                   ],
@@ -335,12 +359,14 @@ class _StoneTag extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade400),
       ),
       child: Center(
-        child: Text(label,
-            style: TextStyle(
-              fontSize: 9,
-              color: isBlack ? Colors.white : Colors.black54,
-              fontWeight: FontWeight.bold,
-            )),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: isBlack ? Colors.white : Colors.black54,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

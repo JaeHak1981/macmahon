@@ -53,11 +53,18 @@ class SectionManagementScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 16, color: AppTheme.textSecondary),
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 16,
+                  color: AppTheme.textSecondary,
+                ),
                 const SizedBox(width: 4),
                 Text(
                   '${state.tournamentDate} | ${state.tournamentLocation}',
-                  style: const TextStyle(color: AppTheme.textSecondary, fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -87,11 +94,15 @@ class SectionManagementScreen extends ConsumerWidget {
                 itemCount: state.sections.length + 1,
                 itemBuilder: (context, index) {
                   if (index == state.sections.length) {
-                    return _AddSectionCard(onTap: () => _showAddSectionDialog(context, ref));
+                    return _AddSectionCard(
+                      onTap: () => _showAddSectionDialog(context, ref),
+                    );
                   }
                   final sectionName = state.sections[index];
                   final sectionData = state.sectionData[sectionName]!;
-                  final players = state.players.where((p) => p.section == sectionName).toList();
+                  final players = state.players
+                      .where((p) => p.section == sectionName)
+                      .toList();
 
                   return _SectionCard(
                     name: sectionName,
@@ -100,13 +111,18 @@ class SectionManagementScreen extends ConsumerWidget {
                     format: sectionData.format,
                     isFinished: sectionData.isFinished,
                     onTap: () {
-                      ref.read(macmahonProvider.notifier).selectSection(sectionName);
+                      ref
+                          .read(macmahonProvider.notifier)
+                          .selectSection(sectionName);
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const TournamentDashboardScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const TournamentDashboardScreen(),
+                        ),
                       );
                     },
-                    onDelete: () => _confirmDeleteSection(context, ref, sectionName),
+                    onDelete: () =>
+                        _confirmDeleteSection(context, ref, sectionName),
                   );
                 },
               ),
@@ -132,7 +148,10 @@ class SectionManagementScreen extends ConsumerWidget {
           autofocus: true,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
           ElevatedButton(
             onPressed: () {
               final name = controller.text.trim();
@@ -148,14 +167,21 @@ class SectionManagementScreen extends ConsumerWidget {
     );
   }
 
-  void _confirmDeleteSection(BuildContext context, WidgetRef ref, String sectionName) {
+  void _confirmDeleteSection(
+    BuildContext context,
+    WidgetRef ref,
+    String sectionName,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('부 삭제'),
         content: Text('[$sectionName] 부와 해당 부의 모든 선수 기록을 삭제하시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
@@ -176,7 +202,10 @@ class SectionManagementScreen extends ConsumerWidget {
         title: const Text('홈 화면으로 이동'),
         content: const Text('현재 대회를 저장하고 메인 화면으로 나가시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
           ElevatedButton(
             onPressed: () async {
               final notifier = ref.read(macmahonProvider.notifier);
@@ -198,7 +227,10 @@ class SectionManagementScreen extends ConsumerWidget {
         title: const Text('대회 초기화'),
         content: const Text('현재 대회의 모든 부와 선수 기록이 삭제됩니다. 정말 초기화하시겠습니까?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
@@ -212,10 +244,16 @@ class SectionManagementScreen extends ConsumerWidget {
     );
   }
 
-  void _showTournamentInfoDialog(BuildContext context, WidgetRef ref, MacmahonState state) {
+  void _showTournamentInfoDialog(
+    BuildContext context,
+    WidgetRef ref,
+    MacmahonState state,
+  ) {
     final nameController = TextEditingController(text: state.tournamentName);
     final dateController = TextEditingController(text: state.tournamentDate);
-    final locationController = TextEditingController(text: state.tournamentLocation);
+    final locationController = TextEditingController(
+      text: state.tournamentLocation,
+    );
 
     showDialog(
       context: context,
@@ -224,20 +262,34 @@ class SectionManagementScreen extends ConsumerWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameController, decoration: const InputDecoration(labelText: '대회명')),
-            TextField(controller: dateController, decoration: const InputDecoration(labelText: '날짜')),
-            TextField(controller: locationController, decoration: const InputDecoration(labelText: '장소')),
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: '대회명'),
+            ),
+            TextField(
+              controller: dateController,
+              decoration: const InputDecoration(labelText: '날짜'),
+            ),
+            TextField(
+              controller: locationController,
+              decoration: const InputDecoration(labelText: '장소'),
+            ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
           ElevatedButton(
             onPressed: () {
-              ref.read(macmahonProvider.notifier).updateTournamentInfo(
-                name: nameController.text.trim(),
-                date: dateController.text.trim(),
-                location: locationController.text.trim(),
-              );
+              ref
+                  .read(macmahonProvider.notifier)
+                  .updateTournamentInfo(
+                    name: nameController.text.trim(),
+                    date: dateController.text.trim(),
+                    location: locationController.text.trim(),
+                  );
               ref.read(macmahonProvider.notifier).saveCurrentTournament();
               ref.read(tournamentHistoryProvider.notifier).loadHistory();
               Navigator.pop(ctx);
@@ -288,7 +340,10 @@ class _SectionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -341,14 +396,21 @@ class _SectionCard extends StatelessWidget {
                 bottom: 12,
                 right: 12,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.grey.shade400,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
                     '종료',
-                    style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -360,12 +422,18 @@ class _SectionCard extends StatelessWidget {
 
   String _formatName(TournamentFormat format) {
     switch (format) {
-      case TournamentFormat.undecided: return '방식 미정';
-      case TournamentFormat.macmahon: return '맥마흔 (스위스)';
-      case TournamentFormat.league: return '풀리그';
-      case TournamentFormat.knockout: return '토너먼트';
-      case TournamentFormat.doubleElimination: return '더블 일리미네이션';
-      case TournamentFormat.leagueAndKnockout: return '혼합 (리그+토너)';
+      case TournamentFormat.undecided:
+        return '방식 미정';
+      case TournamentFormat.macmahon:
+        return '맥마흔 (스위스)';
+      case TournamentFormat.league:
+        return '풀리그';
+      case TournamentFormat.knockout:
+        return '토너먼트';
+      case TournamentFormat.doubleElimination:
+        return '더블 일리미네이션';
+      case TournamentFormat.leagueAndKnockout:
+        return '혼합 (리그+토너)';
     }
   }
 }
@@ -414,11 +482,18 @@ class _AddSectionCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_circle_outline, size: 40, color: Colors.grey.shade400),
+            Icon(
+              Icons.add_circle_outline,
+              size: 40,
+              color: Colors.grey.shade400,
+            ),
             const SizedBox(height: 8),
             Text(
               '부 추가',
-              style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),

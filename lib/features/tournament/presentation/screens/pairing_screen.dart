@@ -38,221 +38,275 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
             child: Column(
-        children: [
-          // ── 페어링 실행 버튼 ─────────────────────────
-          if (state.currentPairing == null)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  const Icon(Icons.shuffle,
-                      size: 64, color: AppTheme.primaryLight),
-                  const SizedBox(height: 16),
-                  Text(
-                    '${state.currentSectionPlayers.length}명의 선수가 등록되어 있습니다.',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 8),
-                  if (state.currentRound == 1) ...[
-                    const Text(
-                      '1라운드 매칭 방식을 선택해주세요.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ── 페어링 실행 버튼 ─────────────────────────
+                if (state.currentPairing == null)
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
                       children: [
-                        ChoiceChip(
-                          label: const Text('무작위 추첨'),
-                          selected: !_isSequentialR1,
-                          selectedColor: AppTheme.primary,
-                          backgroundColor: Colors.grey[200],
-                          checkmarkColor: AppTheme.surface,
-                          labelStyle: TextStyle(
-                            color: !_isSequentialR1 ? AppTheme.surface : AppTheme.textPrimary,
-                            fontWeight: !_isSequentialR1 ? FontWeight.w800 : FontWeight.w500,
-                          ),
-                          onSelected: (val) {
-                            if (val) setState(() => _isSequentialR1 = false);
-                          },
+                        const Icon(
+                          Icons.shuffle,
+                          size: 64,
+                          color: AppTheme.primaryLight,
                         ),
-                        const SizedBox(width: 8),
-                        ChoiceChip(
-                          label: const Text('등록순 매칭 (1-2, 3-4)'),
-                          selected: _isSequentialR1,
-                          selectedColor: AppTheme.primary,
-                          backgroundColor: Colors.grey[200],
-                          checkmarkColor: AppTheme.surface,
-                          labelStyle: TextStyle(
-                            color: _isSequentialR1 ? AppTheme.surface : AppTheme.textPrimary,
-                            fontWeight: _isSequentialR1 ? FontWeight.w800 : FontWeight.w500,
-                          ),
-                          onSelected: (val) {
-                            if (val) setState(() => _isSequentialR1 = true);
-                          },
+                        const SizedBox(height: 16),
+                        Text(
+                          '${state.currentSectionPlayers.length}명의 선수가 등록되어 있습니다.',
+                          style: const TextStyle(fontSize: 16),
                         ),
+                        const SizedBox(height: 8),
+                        if (state.currentRound == 1) ...[
+                          const Text(
+                            '1라운드 매칭 방식을 선택해주세요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ChoiceChip(
+                                label: const Text('무작위 추첨'),
+                                selected: !_isSequentialR1,
+                                selectedColor: AppTheme.primary,
+                                backgroundColor: Colors.grey[200],
+                                checkmarkColor: AppTheme.surface,
+                                labelStyle: TextStyle(
+                                  color: !_isSequentialR1
+                                      ? AppTheme.surface
+                                      : AppTheme.textPrimary,
+                                  fontWeight: !_isSequentialR1
+                                      ? FontWeight.w800
+                                      : FontWeight.w500,
+                                ),
+                                onSelected: (val) {
+                                  if (val)
+                                    setState(() => _isSequentialR1 = false);
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('등록순 매칭 (1-2, 3-4)'),
+                                selected: _isSequentialR1,
+                                selectedColor: AppTheme.primary,
+                                backgroundColor: Colors.grey[200],
+                                checkmarkColor: AppTheme.surface,
+                                labelStyle: TextStyle(
+                                  color: _isSequentialR1
+                                      ? AppTheme.surface
+                                      : AppTheme.textPrimary,
+                                  fontWeight: _isSequentialR1
+                                      ? FontWeight.w800
+                                      : FontWeight.w500,
+                                ),
+                                onSelected: (val) {
+                                  if (val)
+                                    setState(() => _isSequentialR1 = true);
+                                },
+                              ),
+                            ],
+                          ),
+                        ] else ...[
+                          const Text(
+                            '안티그래비티 규칙을 적용하여\n최적의 대진표를 생성합니다.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: state.isLoading
+                                ? null
+                                : () => notifier.generatePairing(
+                                    isSequentialForR1: _isSequentialR1,
+                                  ),
+                            icon: state.isLoading
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.play_arrow),
+                            label: Text(
+                              state.isLoading ? '페어링 중...' : '페어링 시작',
+                            ),
+                          ),
+                        ),
+                        if (state.errorMessage != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              state.errorMessage!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
                       ],
                     ),
-                  ] else ...[
-                    const Text(
-                      '안티그래비티 규칙을 적용하여\n최적의 대진표를 생성합니다.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.textSecondary),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  SizedBox(
+                  )
+                else ...[
+                  // ── 총 비용 표시 배너 ─────────────────────
+                  Container(
                     width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: state.isLoading
-                          ? null
-                          : () => notifier.generatePairing(isSequentialForR1: _isSequentialR1),
-                      icon: state.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.play_arrow),
-                      label: Text(state.isLoading ? '페어링 중...' : '페어링 시작'),
+                    color: AppTheme.primary.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
-                  ),
-                  if (state.errorMessage != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(state.errorMessage!,
-                          style: const TextStyle(color: Colors.red)),
-                    ),
-                ],
-              ),
-            )
-          else ...[
-            // ── 총 비용 표시 배너 ─────────────────────
-            Container(
-              width: double.infinity,
-              color: AppTheme.primary.withValues(alpha: 0.08),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle,
-                      color: AppTheme.primary, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${state.currentPairs.length}경기 확정'
-                    '${state.currentPairing!.byePlayers.isNotEmpty ? " · 부전승: ${state.currentPairing!.byePlayers.length}명" : ""}',
-                    style: const TextStyle(
-                        color: AppTheme.primary,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  const Spacer(),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '총 비용: ${state.currentPairing!.totalCost.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                            fontSize: 12, color: AppTheme.textSecondary),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // ── 대진표 목록 ───────────────────────────
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: state.currentPairs.length +
-                    state.currentPairing!.byePlayers.length,
-                itemBuilder: (context, index) {
-                  if (index < state.currentPairs.length) {
-                    final pair = state.currentPairs[index];
-                    return _PairCard(
-                      pair: pair,
-                      boardNumber: index + 1,
-                      onResultSelected: (winnerId) {
-                        notifier.recordResult(
-                          blackId: pair.black.id,
-                          whiteId: pair.white.id,
-                          winnerId: winnerId,
-                        );
-                      },
-                    );
-                  }
-                  final byePlayer = state.currentPairing!.byePlayers[index - state.currentPairs.length];
-                  return _ByeCard(playerName: byePlayer.name);
-                },
-              ),
-            ),
-
-            // ── 라운드 종료 버튼 ───────────────────────
-            if (state.currentPairing != null)
-              SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: state.currentPairs.every((p) => p.isResultEntered)
-                      ? Row(
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: AppTheme.primary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${state.currentPairs.length}경기 확정'
+                          '${state.currentPairing!.byePlayers.isNotEmpty ? " · 부전승: ${state.currentPairing!.byePlayers.length}명" : ""}',
+                          style: const TextStyle(
+                            color: AppTheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Spacer(),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  notifier.advanceRound();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('라운드가 종료되었습니다. 다음 대진을 생성해주세요.')),
-                                  );
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.surface,
-                                  foregroundColor: AppTheme.primary,
-                                  side: const BorderSide(color: AppTheme.primary),
-                                ),
-                                icon: const Icon(Icons.navigate_next),
-                                label: const Text('다음 라운드 준비'),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  notifier.advanceRound();
-                                  notifier.toggleTournamentStatus(); // 대회 종료 상태로 전환
-                                  ref.read(tournamentHistoryProvider.notifier).loadHistory();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('대회가 종료(결과 확정) 되었습니다.')),
-                                  );
-                                  Navigator.pop(context); // 이전 화면으로 돌아감
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primary,
-                                  foregroundColor: Colors.white,
-                                ),
-                                icon: const Icon(Icons.emoji_events),
-                                label: const Text('대회 종료'),
+                            Text(
+                              '총 비용: ${state.currentPairing!.totalCost.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondary,
                               ),
                             ),
                           ],
-                        )
-                      : SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: null,
-                            icon: const Icon(Icons.check_circle),
-                            label: Text(
-                                '모든 결과를 입력하세요 (${state.currentPairs.where((p) => p.isResultEntered).length}/${state.currentPairs.length})'),
-                          ),
                         ),
-                ),
-              ),
-          ],
-        ],
-      ),
+                      ],
+                    ),
+                  ),
+
+                  // ── 대진표 목록 ───────────────────────────
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount:
+                          state.currentPairs.length +
+                          state.currentPairing!.byePlayers.length,
+                      itemBuilder: (context, index) {
+                        if (index < state.currentPairs.length) {
+                          final pair = state.currentPairs[index];
+                          return _PairCard(
+                            pair: pair,
+                            boardNumber: index + 1,
+                            onResultSelected: (winnerId) {
+                              notifier.recordResult(
+                                blackId: pair.black.id,
+                                whiteId: pair.white.id,
+                                winnerId: winnerId,
+                              );
+                            },
+                          );
+                        }
+                        final byePlayer = state
+                            .currentPairing!
+                            .byePlayers[index - state.currentPairs.length];
+                        return _ByeCard(playerName: byePlayer.name);
+                      },
+                    ),
+                  ),
+
+                  // ── 라운드 종료 버튼 ───────────────────────
+                  if (state.currentPairing != null)
+                    SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child:
+                            state.currentPairs.every((p) => p.isResultEntered)
+                            ? Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        notifier.advanceRound();
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              '라운드가 종료되었습니다. 다음 대진을 생성해주세요.',
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.surface,
+                                        foregroundColor: AppTheme.primary,
+                                        side: const BorderSide(
+                                          color: AppTheme.primary,
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.navigate_next),
+                                      label: const Text('다음 라운드 준비'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: ElevatedButton.icon(
+                                      onPressed: () {
+                                        notifier.advanceRound();
+                                        notifier
+                                            .toggleTournamentStatus(); // 대회 종료 상태로 전환
+                                        ref
+                                            .read(
+                                              tournamentHistoryProvider
+                                                  .notifier,
+                                            )
+                                            .loadHistory();
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              '대회가 종료(결과 확정) 되었습니다.',
+                                            ),
+                                          ),
+                                        );
+                                        Navigator.pop(context); // 이전 화면으로 돌아감
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primary,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      icon: const Icon(Icons.emoji_events),
+                                      label: const Text('대회 종료'),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: null,
+                                  icon: const Icon(Icons.check_circle),
+                                  label: Text(
+                                    '모든 결과를 입력하세요 (${state.currentPairs.where((p) => p.isResultEntered).length}/${state.currentPairs.length})',
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                ],
+              ],
             ),
           ),
         ),
+      ),
     );
   }
 
@@ -260,7 +314,10 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('라운드 취소', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          '라운드 취소',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: const Text('현재 대진표 또는 이전 라운드 결과를 취소하고 이전 단계로 돌아가시겠습니까?'),
         actions: [
           TextButton(
@@ -272,7 +329,10 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
               notifier.undoLastRound();
               Navigator.pop(context);
             },
-            child: const Text('예, 돌아갑니다', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            child: const Text(
+              '예, 돌아갑니다',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -310,11 +370,14 @@ class _PairCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
-                    child: Text('$boardNumber',
-                        style: const TextStyle(
-                            color: Colors.white, 
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14)),
+                    child: Text(
+                      '$boardNumber',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -328,9 +391,13 @@ class _PairCard extends StatelessWidget {
                         children: [
                           _StoneCircle(isBlack: true),
                           const SizedBox(width: 8),
-                          Text(pair.black.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text(
+                            pair.black.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -339,10 +406,13 @@ class _PairCard extends StatelessWidget {
                   ),
                 ),
 
-                const Text('vs',
-                    style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontWeight: FontWeight.bold)),
+                const Text(
+                  'vs',
+                  style: TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
 
                 // 백번 선수
                 Expanded(
@@ -352,9 +422,13 @@ class _PairCard extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Text(pair.white.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text(
+                            pair.white.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           _StoneCircle(isBlack: false),
                         ],
@@ -366,9 +440,9 @@ class _PairCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const Divider(height: 24),
-            
+
             // 승패 선택 버튼
             Row(
               children: [
@@ -434,8 +508,9 @@ class _QuickResultButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color:
-                isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
+            color: isSelected
+                ? color.withValues(alpha: 0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected ? color : Colors.grey.shade300,
@@ -464,8 +539,9 @@ class _QuickResultButton extends StatelessWidget {
                     text: ' $suffix',
                     style: TextStyle(
                       fontSize: isSmall ? 11 : 12,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       color: isSelected ? color : AppTheme.textSecondary,
                     ),
                   ),
@@ -492,8 +568,7 @@ class _StoneCircle extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.grey.shade400),
         boxShadow: const [
-          BoxShadow(
-              color: Colors.black26, blurRadius: 2, offset: Offset(1, 1))
+          BoxShadow(color: Colors.black26, blurRadius: 2, offset: Offset(1, 1)),
         ],
       ),
     );
@@ -540,8 +615,10 @@ class _ByeCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
         leading: const Icon(Icons.airline_seat_flat, color: AppTheme.byeColor),
-        title: Text(playerName,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          playerName,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         trailing: const Chip(
           label: Text('부전승', style: TextStyle(fontWeight: FontWeight.bold)),
           backgroundColor: AppTheme.byeColor,

@@ -3,12 +3,13 @@ import '../../domain/entities/tournament_state.dart';
 import '../../domain/repositories/i_tournament_repository.dart';
 import 'macmahon_provider.dart';
 
-class TournamentHistoryNotifier extends StateNotifier<AsyncValue<List<MacmahonState>>> {
+class TournamentHistoryNotifier
+    extends StateNotifier<AsyncValue<List<MacmahonState>>> {
   final ITournamentRepository _repository;
 
   TournamentHistoryNotifier({required ITournamentRepository repository})
-      : _repository = repository,
-        super(const AsyncValue.loading()) {
+    : _repository = repository,
+      super(const AsyncValue.loading()) {
     loadHistory();
   }
 
@@ -33,5 +34,11 @@ class TournamentHistoryNotifier extends StateNotifier<AsyncValue<List<MacmahonSt
 }
 
 final tournamentHistoryProvider =
-    StateNotifierProvider<TournamentHistoryNotifier, AsyncValue<List<MacmahonState>>>(
-        (ref) => TournamentHistoryNotifier(repository: ref.read(tournamentRepositoryProvider)));
+    StateNotifierProvider<
+      TournamentHistoryNotifier,
+      AsyncValue<List<MacmahonState>>
+    >(
+      (ref) => TournamentHistoryNotifier(
+        repository: ref.read(tournamentRepositoryProvider),
+      ),
+    );

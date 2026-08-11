@@ -19,14 +19,11 @@ class MacmahonPair {
     required this.cost,
     this.winnerId,
     this.isResultEntered = false,
-  })  : mmsDiff = (black.currentMms - white.currentMms).abs(),
-        blackFloatResult = _calcFloat(black, white),
-        whiteFloatResult = _calcFloat(white, black);
+  }) : mmsDiff = (black.currentMms - white.currentMms).abs(),
+       blackFloatResult = _calcFloat(black, white),
+       whiteFloatResult = _calcFloat(white, black);
 
-  MacmahonPair copyWith({
-    String? winnerId,
-    bool? isResultEntered,
-  }) {
+  MacmahonPair copyWith({String? winnerId, bool? isResultEntered}) {
     return MacmahonPair(
       black: black,
       white: white,
@@ -68,7 +65,8 @@ class PairingResult {
     this.byePlayers = const [],
   });
 
-  MacmahonPlayer? get byePlayer => byePlayers.isNotEmpty ? byePlayers.first : null;
+  MacmahonPlayer? get byePlayer =>
+      byePlayers.isNotEmpty ? byePlayers.first : null;
 
   PairingResult copyWith({
     List<MacmahonPair>? pairs,

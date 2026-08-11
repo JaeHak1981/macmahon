@@ -16,10 +16,7 @@ class LockScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.red.shade900,
-              Colors.grey.shade900,
-            ],
+            colors: [Colors.red.shade900, Colors.grey.shade900],
           ),
         ),
         child: Column(
@@ -62,10 +59,7 @@ class LockScreen extends StatelessWidget {
                   Text(
                     '계속 사용하시려면 관리자에게 문의하여\n라이선스를 갱신해 주세요.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                 ],
               ),

@@ -11,7 +11,10 @@ class GroupAssignmentScreen extends ConsumerWidget {
     final state = ref.watch(macmahonProvider);
     final players = state.currentSectionPlayers;
     final groupCount = state.currentSectionData.groupCount;
-    final groups = List.generate(groupCount, (i) => String.fromCharCode(65 + i));
+    final groups = List.generate(
+      groupCount,
+      (i) => String.fromCharCode(65 + i),
+    );
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -37,12 +40,19 @@ class GroupAssignmentScreen extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.info_outline, color: AppTheme.primary, size: 20),
+                    const Icon(
+                      Icons.info_outline,
+                      color: AppTheme.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         '총 $groupCount개 조로 편성합니다. 각 선수의 조를 직접 선택하거나 자동 편성 기능을 사용하세요.',
-                        style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -85,14 +95,13 @@ class GroupAssignmentScreen extends ConsumerWidget {
                         child: Text('미지정'),
                       ),
                       ...groups.map(
-                        (g) => DropdownMenuItem(
-                          value: g,
-                          child: Text('$g조'),
-                        ),
+                        (g) => DropdownMenuItem(value: g, child: Text('$g조')),
                       ),
                     ],
                     onChanged: (val) {
-                      ref.read(macmahonProvider.notifier).updatePlayerGroup(player.id, val);
+                      ref
+                          .read(macmahonProvider.notifier)
+                          .updatePlayerGroup(player.id, val);
                     },
                   ),
                 );
@@ -110,9 +119,14 @@ class GroupAssignmentScreen extends ConsumerWidget {
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('완료', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text(
+              '완료',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
         ),
       ),
@@ -124,9 +138,14 @@ class GroupAssignmentScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('자동 조 편성'),
-        content: const Text('조가 미지정된 선수들을 현재 설정된 조에 균등하게 자동 배정하시겠습니까?\n이미 조가 배정된 선수는 변경되지 않습니다.'),
+        content: const Text(
+          '조가 미지정된 선수들을 현재 설정된 조에 균등하게 자동 배정하시겠습니까?\n이미 조가 배정된 선수는 변경되지 않습니다.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
           ElevatedButton(
             onPressed: () {
               ref.read(macmahonProvider.notifier).autoAssignGroups();

@@ -43,12 +43,12 @@ class PairingService {
           break;
         }
       }
-      
+
       // 만약 전원이 부전승을 한 번씩 해본 극단적인 경우라면 그냥 꼴찌를 지정
       if (byeCandidateIndex == -1) {
         byeCandidateIndex = unmatched.length - 1;
       }
-      
+
       byePlayer = unmatched.removeAt(byeCandidateIndex);
     }
 
@@ -75,11 +75,11 @@ class PairingService {
   }
 
   bool _findBestPairingDFS(
-      List<MacmahonPlayer> unmatched,
-      List<MacmahonPair> currentPairs,
-      int currentCost,
-      List<MacmahonPlayer> originalList) {
-    
+    List<MacmahonPlayer> unmatched,
+    List<MacmahonPair> currentPairs,
+    int currentCost,
+    List<MacmahonPlayer> originalList,
+  ) {
     // Pruning: 이미 찾은 최고 기록보다 벌점이 높으면 즉시 포기
     if (currentCost >= _bestCost) return false;
 
@@ -99,17 +99,24 @@ class PairingService {
       // 두 사람이 둔 적이 없다면 짝을 지어봄
       if (!p1.hasPlayedAgainst(p2.id)) {
         int pairCost = _calculateCost(p1, p2, originalList);
-        
+
         final black = p1.currentMms >= p2.currentMms ? p1 : p2;
         final white = p1.currentMms >= p2.currentMms ? p2 : p1;
-        
-        currentPairs.add(MacmahonPair(black: black, white: white, cost: pairCost.toDouble()));
-        
+
+        currentPairs.add(
+          MacmahonPair(black: black, white: white, cost: pairCost.toDouble()),
+        );
+
         List<MacmahonPlayer> remaining = List.from(unmatched)
           ..remove(p1)
           ..remove(p2);
 
-        if (_findBestPairingDFS(remaining, currentPairs, currentCost + pairCost, originalList)) {
+        if (_findBestPairingDFS(
+          remaining,
+          currentPairs,
+          currentCost + pairCost,
+          originalList,
+        )) {
           foundAny = true;
         }
 
@@ -120,13 +127,17 @@ class PairingService {
     return foundAny;
   }
 
-  int _calculateCost(MacmahonPlayer p1, MacmahonPlayer p2, List<MacmahonPlayer> originalList) {
+  int _calculateCost(
+    MacmahonPlayer p1,
+    MacmahonPlayer p2,
+    List<MacmahonPlayer> originalList,
+  ) {
     int cost = 0;
-    
+
     // 1. MMS 차이 벌점 (1점 차이당 1000점)
     int mmsDiff = (p1.currentMms - p2.currentMms).abs().toInt();
     cost += mmsDiff * 1000;
-    
+
     // 2. 거리 벌점 (원래 정렬된 리스트에서의 인덱스 차이)
     // 순위표 상에서 인접한 사람을 가장 강력하게 우선시 (가중치 100)
     int idx1 = originalList.indexOf(p1);
@@ -138,16 +149,20 @@ class PairingService {
     if (p1.historyString != p2.historyString) {
       cost += 10;
     }
-    
+
     return cost;
   }
 
-  void _fallbackGreedyPairing(List<MacmahonPlayer> unmatched, List<MacmahonPair> pairs) {
+  void _fallbackGreedyPairing(
+    List<MacmahonPlayer> unmatched,
+    List<MacmahonPair> pairs,
+  ) {
     while (unmatched.length >= 2) {
       final p1 = unmatched.removeAt(0);
       int partnerIndex = 0;
 
-      while (partnerIndex < unmatched.length && p1.hasPlayedAgainst(unmatched[partnerIndex].id)) {
+      while (partnerIndex < unmatched.length &&
+          p1.hasPlayedAgainst(unmatched[partnerIndex].id)) {
         partnerIndex++;
       }
 
@@ -163,8 +178,6 @@ class PairingService {
     }
   }
 
-
-
   PairingResult generateLeaguePairing({
     required List<MacmahonPlayer> players,
     required int round,
@@ -173,18 +186,25 @@ class PairingService {
 
     final List<MacmahonPlayer> workingList = List.from(players);
     if (workingList.length % 2 != 0) {
-      workingList.add(MacmahonPlayer(id: _kDummyId, name: 'BYE', initialMms: 0, currentMms: 0));
+      workingList.add(
+        MacmahonPlayer(
+          id: _kDummyId,
+          name: 'BYE',
+          initialMms: 0,
+          currentMms: 0,
+        ),
+      );
     }
 
     final int n = workingList.length;
     final int roundsCount = n - 1;
-    
+
     if (round > roundsCount) {
       return PairingResult(pairs: [], round: round);
     }
 
     final List<MacmahonPlayer> rotated = List.from(workingList);
-    
+
     for (int r = 1; r < round; r++) {
       final MacmahonPlayer last = rotated.removeLast();
       rotated.insert(1, last);
@@ -224,7 +244,7 @@ class PairingService {
     // 2라운드부터는 이전 라운드 승자 순서를 유지해야 대진표가 꼬이지 않음
     if (round == 1) {
       sorted.sort((a, b) => b.currentMms.compareTo(a.currentMms));
-      
+
       // 시드 배정 (1위 vs 8위 식의 배치를 원한다면 여기서 순서를 섞어줘야 함)
       // 현재 브라켓 UI는 순차적 배치를 가정하므로, 일단 그대로 둡니다.
     }
@@ -237,8 +257,9 @@ class PairingService {
       byePlayer = sorted.last;
     }
 
-    final List<MacmahonPlayer> remaining =
-        byePlayer != null ? sorted.sublist(0, n - 1) : sorted;
+    final List<MacmahonPlayer> remaining = byePlayer != null
+        ? sorted.sublist(0, n - 1)
+        : sorted;
 
     final List<MacmahonPair> pairs = [];
 
@@ -248,17 +269,21 @@ class PairingService {
       final p2 = remaining[i + 1];
 
       // 부전승(Dummy) 체크 및 자동 결과 처리
-      final bool isP1Dummy = p1.id == _kDummyId || p1.id.startsWith('bye_') || p1.name == '(부전)';
-      final bool isP2Dummy = p2.id == _kDummyId || p2.id.startsWith('bye_') || p2.name == '(부전)';
+      final bool isP1Dummy =
+          p1.id == _kDummyId || p1.id.startsWith('bye_') || p1.name == '(부전)';
+      final bool isP2Dummy =
+          p2.id == _kDummyId || p2.id.startsWith('bye_') || p2.name == '(부전)';
 
       if (isP1Dummy || isP2Dummy) {
-        pairs.add(MacmahonPair(
-          black: p1,
-          white: p2,
-          cost: 0,
-          winnerId: isP1Dummy ? p2.id : p1.id,
-          isResultEntered: true,
-        ));
+        pairs.add(
+          MacmahonPair(
+            black: p1,
+            white: p2,
+            cost: 0,
+            winnerId: isP1Dummy ? p2.id : p1.id,
+            isResultEntered: true,
+          ),
+        );
       } else {
         pairs.add(MacmahonPair(black: p1, white: p2, cost: 0));
       }
@@ -284,8 +309,9 @@ class PairingService {
       byePlayer = orderedPlayers.last;
     }
 
-    final List<MacmahonPlayer> remaining =
-        byePlayer != null ? orderedPlayers.sublist(0, n - 1) : orderedPlayers;
+    final List<MacmahonPlayer> remaining = byePlayer != null
+        ? orderedPlayers.sublist(0, n - 1)
+        : orderedPlayers;
 
     final List<MacmahonPair> pairs = [];
 
@@ -294,23 +320,23 @@ class PairingService {
       final p2 = remaining[i + 1];
 
       // 부전승(Dummy) 체크 및 자동 결과 처리
-      final bool isP1Dummy = p1.id == _kDummyId || p1.id.startsWith('bye_') || p1.name == '(부전)';
-      final bool isP2Dummy = p2.id == _kDummyId || p2.id.startsWith('bye_') || p2.name == '(부전)';
+      final bool isP1Dummy =
+          p1.id == _kDummyId || p1.id.startsWith('bye_') || p1.name == '(부전)';
+      final bool isP2Dummy =
+          p2.id == _kDummyId || p2.id.startsWith('bye_') || p2.name == '(부전)';
 
       if (isP1Dummy || isP2Dummy) {
-        pairs.add(MacmahonPair(
-          black: p1,
-          white: p2,
-          cost: 0,
-          winnerId: isP1Dummy ? p2.id : p1.id,
-          isResultEntered: true,
-        ));
+        pairs.add(
+          MacmahonPair(
+            black: p1,
+            white: p2,
+            cost: 0,
+            winnerId: isP1Dummy ? p2.id : p1.id,
+            isResultEntered: true,
+          ),
+        );
       } else {
-        pairs.add(MacmahonPair(
-          black: p1,
-          white: p2,
-          cost: 0,
-        ));
+        pairs.add(MacmahonPair(black: p1, white: p2, cost: 0));
       }
     }
 
@@ -328,8 +354,14 @@ class PairingService {
 
     final List<MacmahonPlayer> workingList = List.from(players);
     if (workingList.length % 2 != 0) {
-      workingList.add(MacmahonPlayer(
-          id: _kDummyId, name: 'BYE', initialMms: 0, currentMms: 0));
+      workingList.add(
+        MacmahonPlayer(
+          id: _kDummyId,
+          name: 'BYE',
+          initialMms: 0,
+          currentMms: 0,
+        ),
+      );
     }
 
     final int n = workingList.length;
@@ -371,13 +403,8 @@ class PairingService {
       allByePlayers.addAll(res.byePlayers);
     });
 
-    return PairingResult(
-      pairs: allPairs,
-      round: 1,
-      byePlayers: allByePlayers,
-    );
+    return PairingResult(pairs: allPairs, round: 1, byePlayers: allByePlayers);
   }
 
   static const String _kDummyId = '__dummy__';
-
 }

@@ -16,28 +16,47 @@ import '../../data/repositories/tournament_repository_impl.dart';
 
 // ─── Providers ──────────────────────────────────────────
 
-final tournamentRepositoryProvider = Provider<ITournamentRepository>((ref) => TournamentRepositoryImpl());
+final tournamentRepositoryProvider = Provider<ITournamentRepository>(
+  (ref) => TournamentRepositoryImpl(),
+);
 
-final calculateStandingsUseCaseProvider = Provider((ref) => CalculateStandingsUseCase());
-final recordResultUseCaseProvider = Provider((ref) => RecordResultUseCase(ref.read(calculateStandingsUseCaseProvider)));
-final generatePairingUseCaseProvider = Provider((ref) => GeneratePairingUseCase(PairingService()));
+final calculateStandingsUseCaseProvider = Provider(
+  (ref) => CalculateStandingsUseCase(),
+);
+final recordResultUseCaseProvider = Provider(
+  (ref) => RecordResultUseCase(ref.read(calculateStandingsUseCaseProvider)),
+);
+final generatePairingUseCaseProvider = Provider(
+  (ref) => GeneratePairingUseCase(PairingService()),
+);
 final assignGroupsUseCaseProvider = Provider((ref) => AssignGroupsUseCase());
-final advanceRoundUseCaseProvider = Provider((ref) => AdvanceRoundUseCase(ref.read(calculateStandingsUseCaseProvider)));
-final undoRoundUseCaseProvider = Provider((ref) => UndoRoundUseCase(ref.read(calculateStandingsUseCaseProvider)));
-final manageKnockoutUseCaseProvider = Provider((ref) => ManageKnockoutUseCase(PairingService(), ref.read(calculateStandingsUseCaseProvider)));
+final advanceRoundUseCaseProvider = Provider(
+  (ref) => AdvanceRoundUseCase(ref.read(calculateStandingsUseCaseProvider)),
+);
+final undoRoundUseCaseProvider = Provider(
+  (ref) => UndoRoundUseCase(ref.read(calculateStandingsUseCaseProvider)),
+);
+final manageKnockoutUseCaseProvider = Provider(
+  (ref) => ManageKnockoutUseCase(
+    PairingService(),
+    ref.read(calculateStandingsUseCaseProvider),
+  ),
+);
 
-final macmahonProvider = StateNotifierProvider<MacmahonNotifier, MacmahonState>((ref) {
-  return MacmahonNotifier(
-    calculateStandingsUseCase: ref.read(calculateStandingsUseCaseProvider),
-    recordResultUseCase: ref.read(recordResultUseCaseProvider),
-    generatePairingUseCase: ref.read(generatePairingUseCaseProvider),
-    assignGroupsUseCase: ref.read(assignGroupsUseCaseProvider),
-    advanceRoundUseCase: ref.read(advanceRoundUseCaseProvider),
-    undoRoundUseCase: ref.read(undoRoundUseCaseProvider),
-    manageKnockoutUseCase: ref.read(manageKnockoutUseCaseProvider),
-    repository: ref.read(tournamentRepositoryProvider),
-  );
-});
+final macmahonProvider = StateNotifierProvider<MacmahonNotifier, MacmahonState>(
+  (ref) {
+    return MacmahonNotifier(
+      calculateStandingsUseCase: ref.read(calculateStandingsUseCaseProvider),
+      recordResultUseCase: ref.read(recordResultUseCaseProvider),
+      generatePairingUseCase: ref.read(generatePairingUseCaseProvider),
+      assignGroupsUseCase: ref.read(assignGroupsUseCaseProvider),
+      advanceRoundUseCase: ref.read(advanceRoundUseCaseProvider),
+      undoRoundUseCase: ref.read(undoRoundUseCaseProvider),
+      manageKnockoutUseCase: ref.read(manageKnockoutUseCaseProvider),
+      repository: ref.read(tournamentRepositoryProvider),
+    );
+  },
+);
 
 // ─── Notifier ─────────────────────────────────────────────
 
@@ -60,15 +79,17 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     required UndoRoundUseCase undoRoundUseCase,
     required ManageKnockoutUseCase manageKnockoutUseCase,
     required ITournamentRepository repository,
-  })  : _calculateStandingsUseCase = calculateStandingsUseCase,
-        _recordResultUseCase = recordResultUseCase,
-        _generatePairingUseCase = generatePairingUseCase,
-        _assignGroupsUseCase = assignGroupsUseCase,
-        _advanceRoundUseCase = advanceRoundUseCase,
-        _undoRoundUseCase = undoRoundUseCase,
-        _manageKnockoutUseCase = manageKnockoutUseCase,
-        _repository = repository,
-        super(MacmahonState(id: 'tour_${DateTime.now().millisecondsSinceEpoch}'));
+  }) : _calculateStandingsUseCase = calculateStandingsUseCase,
+       _recordResultUseCase = recordResultUseCase,
+       _generatePairingUseCase = generatePairingUseCase,
+       _assignGroupsUseCase = assignGroupsUseCase,
+       _advanceRoundUseCase = advanceRoundUseCase,
+       _undoRoundUseCase = undoRoundUseCase,
+       _manageKnockoutUseCase = manageKnockoutUseCase,
+       _repository = repository,
+       super(
+         MacmahonState(id: 'tour_${DateTime.now().millisecondsSinceEpoch}'),
+       );
 
   // ── 데이터 관리 ──────────────────────────────────────────
 
@@ -85,10 +106,15 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
 
   // ── 대회 설정 ────────────────────────────────────────────
 
-  void updateTournamentInfo({String? name, String? date, String? location, List<String>? sections}) {
+  void updateTournamentInfo({
+    String? name,
+    String? date,
+    String? location,
+    List<String>? sections,
+  }) {
     Map<String, SectionData>? newSectionData;
     String? firstSection;
-    
+
     if (sections != null) {
       newSectionData = {for (var s in sections) s: const SectionData()};
       firstSection = sections.isNotEmpty ? sections.first : '';
@@ -115,7 +141,10 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     if (!state.sectionData.containsKey(sectionName)) {
       final newSectionData = Map<String, SectionData>.from(state.sectionData);
       newSectionData[sectionName] = const SectionData();
-      state = state.copyWith(sectionData: newSectionData, selectedSection: sectionName);
+      state = state.copyWith(
+        sectionData: newSectionData,
+        selectedSection: sectionName,
+      );
     } else {
       state = state.copyWith(selectedSection: sectionName);
     }
@@ -134,15 +163,19 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     if (state.sectionData.containsKey(sectionName)) {
       final newSectionData = Map<String, SectionData>.from(state.sectionData);
       newSectionData.remove(sectionName);
-      
+
       // 해당 부의 선수들도 삭제
-      final remainingPlayers = state.players.where((p) => p.section != sectionName).toList();
-      
+      final remainingPlayers = state.players
+          .where((p) => p.section != sectionName)
+          .toList();
+
       String? newSelected = state.selectedSection;
       if (newSelected == sectionName) {
-        newSelected = newSectionData.keys.isNotEmpty ? newSectionData.keys.first : null;
+        newSelected = newSectionData.keys.isNotEmpty
+            ? newSectionData.keys.first
+            : null;
       }
-      
+
       state = state.copyWith(
         sectionData: newSectionData,
         selectedSection: newSelected,
@@ -152,7 +185,14 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     }
   }
 
-  void updateSectionSettings({TournamentFormat? format, LeagueType? leagueType, int? qualifierCount, int? groupCount, int? qualifiersPerGroup, bool? useHeadToHead}) {
+  void updateSectionSettings({
+    TournamentFormat? format,
+    LeagueType? leagueType,
+    int? qualifierCount,
+    int? groupCount,
+    int? qualifiersPerGroup,
+    bool? useHeadToHead,
+  }) {
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
     newSectionData[state.selectedSection] = state.currentSectionData.copyWith(
       format: format,
@@ -161,9 +201,11 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
       groupCount: groupCount,
       qualifiersPerGroup: qualifiersPerGroup,
       useHeadToHead: useHeadToHead,
-      stage: (format == TournamentFormat.knockout) 
-          ? 2 
-          : (format == TournamentFormat.league ? 1 : state.currentSectionData.stage),
+      stage: (format == TournamentFormat.knockout)
+          ? 2
+          : (format == TournamentFormat.league
+                ? 1
+                : state.currentSectionData.stage),
     );
     state = state.copyWith(sectionData: newSectionData);
     saveCurrentTournament();
@@ -171,7 +213,9 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
 
   void updateBracketStyle(BracketStyle style) {
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
-    newSectionData[state.selectedSection] = state.currentSectionData.copyWith(bracketStyle: style);
+    newSectionData[state.selectedSection] = state.currentSectionData.copyWith(
+      bracketStyle: style,
+    );
     state = state.copyWith(sectionData: newSectionData);
     saveCurrentTournament();
   }
@@ -185,20 +229,26 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
 
   void updatePlayer(MacmahonPlayer updatedPlayer) {
     state = state.copyWith(
-      players: state.players.map((p) => p.id == updatedPlayer.id ? updatedPlayer : p).toList(),
+      players: state.players
+          .map((p) => p.id == updatedPlayer.id ? updatedPlayer : p)
+          .toList(),
     );
     saveCurrentTournament();
   }
 
   void updatePlayerGroup(String playerId, String? groupId) {
     state = state.copyWith(
-      players: state.players.map((p) => p.id == playerId ? p.copyWith(groupId: groupId) : p).toList(),
+      players: state.players
+          .map((p) => p.id == playerId ? p.copyWith(groupId: groupId) : p)
+          .toList(),
     );
     saveCurrentTournament();
   }
 
   void removePlayer(String playerId) {
-    state = state.copyWith(players: state.players.where((p) => p.id != playerId).toList());
+    state = state.copyWith(
+      players: state.players.where((p) => p.id != playerId).toList(),
+    );
     saveCurrentTournament();
   }
 
@@ -211,13 +261,15 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     final List<MacmahonPlayer> samples = [];
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     for (int i = 1; i <= count; i++) {
-      samples.add(MacmahonPlayer(
-        id: 'sample_${timestamp}_$i',
-        name: '선수 $i',
-        section: state.selectedSection,
-        initialMms: 0.0,
-        currentMms: 0.0,
-      ));
+      samples.add(
+        MacmahonPlayer(
+          id: 'sample_${timestamp}_$i',
+          name: '선수 $i',
+          section: state.selectedSection,
+          initialMms: 0.0,
+          currentMms: 0.0,
+        ),
+      );
     }
     addPlayers(samples);
   }
@@ -226,12 +278,19 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
 
   Future<void> generatePairing({bool isSequentialForR1 = false}) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
-    final newState = await _generatePairingUseCase.execute(state: state, isSequentialForR1: isSequentialForR1);
+    final newState = await _generatePairingUseCase.execute(
+      state: state,
+      isSequentialForR1: isSequentialForR1,
+    );
     state = newState.copyWith(isLoading: false);
     saveCurrentTournament();
   }
 
-  void recordResult({required String blackId, required String whiteId, String? winnerId}) {
+  void recordResult({
+    required String blackId,
+    required String whiteId,
+    String? winnerId,
+  }) {
     state = _recordResultUseCase.execute(
       state: state,
       playerAId: blackId,
@@ -268,7 +327,11 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     saveCurrentTournament();
   }
 
-  void recordResultByPlayers(String playerAId, String playerBId, String? winnerId) {
+  void recordResultByPlayers(
+    String playerAId,
+    String playerBId,
+    String? winnerId,
+  ) {
     recordResult(blackId: playerAId, whiteId: playerBId, winnerId: winnerId);
   }
 
@@ -294,7 +357,8 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
   void toggleTournamentStatus() {
     final newSectionData = Map<String, SectionData>.from(state.sectionData);
     newSectionData[state.selectedSection] = state.currentSectionData.copyWith(
-        isFinished: !state.currentSectionData.isFinished);
+      isFinished: !state.currentSectionData.isFinished,
+    );
     state = state.copyWith(sectionData: newSectionData);
     saveCurrentTournament();
   }
@@ -303,8 +367,9 @@ class MacmahonNotifier extends StateNotifier<MacmahonState> {
     state = _calculateStandingsUseCase.execute(state);
   }
 
-
-  Future<void> generateManualPairing(List<MacmahonPlayer> orderedPlayers) async {
+  Future<void> generateManualPairing(
+    List<MacmahonPlayer> orderedPlayers,
+  ) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       state = _manageKnockoutUseCase.generateManualPairing(

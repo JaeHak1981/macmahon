@@ -22,7 +22,7 @@ class RecordResultUseCase {
     if (newCurrentPairing != null) {
       final newPairs = newCurrentPairing.pairs.map((p) {
         if (((p.black.id == playerAId && p.white.id == playerBId) ||
-                (p.black.id == playerBId && p.white.id == playerAId))) {
+            (p.black.id == playerBId && p.white.id == playerAId))) {
           anyUpdated = true;
           return p.setResult(winnerId);
         }
@@ -36,7 +36,7 @@ class RecordResultUseCase {
       bool foundInRound = false;
       final newPairs = round.pairs.map((p) {
         if (((p.black.id == playerAId && p.white.id == playerBId) ||
-                (p.black.id == playerBId && p.white.id == playerAId))) {
+            (p.black.id == playerBId && p.white.id == playerAId))) {
           foundInRound = true;
           anyUpdated = true;
           return p.setResult(winnerId);

@@ -51,7 +51,9 @@ class SectionData {
   }) {
     return SectionData(
       history: history ?? this.history,
-      currentPairing: clearCurrentPairing ? null : (currentPairing ?? this.currentPairing),
+      currentPairing: clearCurrentPairing
+          ? null
+          : (currentPairing ?? this.currentPairing),
       currentRound: currentRound ?? this.currentRound,
       isFinished: isFinished ?? this.isFinished,
       format: format ?? this.format,
@@ -90,8 +92,10 @@ class MacmahonState {
     this.errorMessage,
   });
 
-  SectionData get currentSectionData => sectionData[selectedSection] ?? const SectionData();
-  List<MacmahonPlayer> get currentSectionPlayers => players.where((p) => p.section == selectedSection).toList();
+  SectionData get currentSectionData =>
+      sectionData[selectedSection] ?? const SectionData();
+  List<MacmahonPlayer> get currentSectionPlayers =>
+      players.where((p) => p.section == selectedSection).toList();
   TournamentFormat get format => currentSectionData.format;
   int get currentRound => currentSectionData.currentRound;
   List<PairingResult> get history => currentSectionData.history;
@@ -103,7 +107,9 @@ class MacmahonState {
   bool get isFinished => currentSectionData.isFinished;
 
   int get recommendedRounds {
-    return MacmahonUtils.calculateRecommendedRounds(currentSectionPlayers.length);
+    return MacmahonUtils.calculateRecommendedRounds(
+      currentSectionPlayers.length,
+    );
   }
 
   List<String> get availableGroups {

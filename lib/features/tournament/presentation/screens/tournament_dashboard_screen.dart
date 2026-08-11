@@ -19,7 +19,8 @@ class TournamentDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(macmahonProvider);
-    final isLeague = (state.format == TournamentFormat.league ||
+    final isLeague =
+        (state.format == TournamentFormat.league ||
             state.format == TournamentFormat.leagueAndKnockout) &&
         state.stage == 1;
 
@@ -28,8 +29,12 @@ class TournamentDashboardScreen extends ConsumerWidget {
       if (currentData.groupCount <= 1) return false;
       final players = state.currentSectionPlayers;
       if (players.isEmpty) return false;
-      final groupIds = players.map((p) => p.groupId).where((id) => id != null).toSet();
-      return groupIds.length < currentData.groupCount || players.any((p) => p.groupId == null);
+      final groupIds = players
+          .map((p) => p.groupId)
+          .where((id) => id != null)
+          .toSet();
+      return groupIds.length < currentData.groupCount ||
+          players.any((p) => p.groupId == null);
     }
 
     void showGroupWarning(int index) {
@@ -43,21 +48,36 @@ class TournamentDashboardScreen extends ConsumerWidget {
               Text('조 편성 필요'),
             ],
           ),
-          content: Text('현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?'),
+          content: Text(
+            '현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?',
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => StandingsScreen(initialIndex: index)));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StandingsScreen(initialIndex: index),
+                  ),
+                );
               },
               child: const Text('그냥 진행', style: TextStyle(color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const GroupAssignmentScreen(),
+                  ),
+                );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primary,
+                foregroundColor: Colors.white,
+              ),
               child: const Text('조 편성하기'),
             ),
           ],
@@ -72,7 +92,10 @@ class TournamentDashboardScreen extends ConsumerWidget {
         elevation: 0,
         centerTitle: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppTheme.textPrimary),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppTheme.textPrimary,
+          ),
           onPressed: () => Navigator.pop(context),
           tooltip: '부 관리 화면으로 이동',
         ),
@@ -164,11 +187,11 @@ class TournamentDashboardScreen extends ConsumerWidget {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 220,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            childAspectRatio: 1.2,
-                          ),
+                                maxCrossAxisExtent: 220,
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 16,
+                                childAspectRatio: 1.2,
+                              ),
                           children: [
                             _GridMenuButton(
                               icon: Icons.people_outline,
@@ -218,12 +241,14 @@ class TournamentDashboardScreen extends ConsumerWidget {
                             if (state.format != TournamentFormat.knockout)
                               _GridMenuButton(
                                 icon: Icons.grid_on,
-                                label: (state.format == TournamentFormat.league ||
+                                label:
+                                    (state.format == TournamentFormat.league ||
                                         state.format ==
                                             TournamentFormat.leagueAndKnockout)
                                     ? '리그표'
                                     : '결과표',
-                                subtitle: (state.format == TournamentFormat.league ||
+                                subtitle:
+                                    (state.format == TournamentFormat.league ||
                                         state.format ==
                                             TournamentFormat.leagueAndKnockout)
                                     ? '대진 매트릭스'
@@ -237,9 +262,10 @@ class TournamentDashboardScreen extends ConsumerWidget {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) => const StandingsScreen(
-                                                initialIndex: 1,
-                                              ),
+                                              builder: (_) =>
+                                                  const StandingsScreen(
+                                                    initialIndex: 1,
+                                                  ),
                                             ),
                                           );
                                         }
@@ -266,8 +292,12 @@ class TournamentDashboardScreen extends ConsumerWidget {
                               label: '토너먼트 대진표',
                               subtitle: '본선 브라켓',
                               color: Colors.deepPurple,
-                              onTap: (state.format == TournamentFormat.knockout || 
-                                     (state.format == TournamentFormat.leagueAndKnockout && state.stage == 2))
+                              onTap:
+                                  (state.format == TournamentFormat.knockout ||
+                                      (state.format ==
+                                              TournamentFormat
+                                                  .leagueAndKnockout &&
+                                          state.stage == 2))
                                   ? () => Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -287,7 +317,8 @@ class TournamentDashboardScreen extends ConsumerWidget {
                               color: state.isFinished
                                   ? Colors.green
                                   : Colors.blueAccent,
-                              onTap: (state.isFinished ||
+                              onTap:
+                                  (state.isFinished ||
                                       state.currentSectionPlayers.isNotEmpty)
                                   ? () {
                                       ref
@@ -404,12 +435,8 @@ class TournamentDashboardScreen extends ConsumerWidget {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  ref
-                      .read(macmahonProvider.notifier)
-                      .toggleTournamentStatus();
-                  ref
-                      .read(tournamentHistoryProvider.notifier)
-                      .loadHistory();
+                  ref.read(macmahonProvider.notifier).toggleTournamentStatus();
+                  ref.read(tournamentHistoryProvider.notifier).loadHistory();
 
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -524,11 +551,16 @@ class TournamentDashboardScreen extends ConsumerWidget {
                             ? groupCount
                             : null,
                         hint: Text('$groupCount개 조'),
-                        decoration:
-                            const InputDecoration(border: OutlineInputBorder()),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                        ),
                         items: [1, 2, 4, 8]
-                            .map((n) =>
-                                DropdownMenuItem(value: n, child: Text('$n개 조')))
+                            .map(
+                              (n) => DropdownMenuItem(
+                                value: n,
+                                child: Text('$n개 조'),
+                              ),
+                            )
                             .toList(),
                         onChanged: (val) {
                           if (val != null) {
@@ -546,7 +578,9 @@ class TournamentDashboardScreen extends ConsumerWidget {
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           final val = await _showCustomGroupInputDialog(
-                              context, groupCount);
+                            context,
+                            groupCount,
+                          );
                           if (val != null) {
                             setState(() {
                               groupCount = val;
@@ -570,7 +604,9 @@ class TournamentDashboardScreen extends ConsumerWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () {
-                      ref.read(macmahonProvider.notifier).updateSectionSettings(
+                      ref
+                          .read(macmahonProvider.notifier)
+                          .updateSectionSettings(
                             format: selectedFormat,
                             qualifierCount: qualifierCount,
                             groupCount: groupCount,
@@ -602,11 +638,16 @@ class TournamentDashboardScreen extends ConsumerWidget {
                   value: [1, 2, 3, 4].contains(qualifiersPerGroup)
                       ? qualifiersPerGroup
                       : 1,
-                  decoration:
-                      const InputDecoration(border: OutlineInputBorder()),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                  ),
                   items: [1, 2, 3, 4]
-                      .map((n) => DropdownMenuItem(
-                          value: n, child: Text('조 $n위까지 진출')))
+                      .map(
+                        (n) => DropdownMenuItem(
+                          value: n,
+                          child: Text('조 $n위까지 진출'),
+                        ),
+                      )
                       .toList(),
                   onChanged: (val) {
                     if (val != null) {
@@ -621,9 +662,10 @@ class TournamentDashboardScreen extends ConsumerWidget {
                 Text(
                   '※ 총 본선 진출: $qualifierCount명 ($groupCount개 조 x $qualifiersPerGroup명)',
                   style: const TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.primary,
-                      fontWeight: FontWeight.bold),
+                    fontSize: 12,
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ],
@@ -635,7 +677,9 @@ class TournamentDashboardScreen extends ConsumerWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                ref.read(macmahonProvider.notifier).updateSectionSettings(
+                ref
+                    .read(macmahonProvider.notifier)
+                    .updateSectionSettings(
                       format: selectedFormat,
                       qualifierCount: qualifierCount,
                       groupCount: groupCount,
@@ -954,8 +998,13 @@ class _CallToActionCard extends ConsumerWidget {
     }
 
     final format = state.currentSectionData.format;
-    final isLeague = (format == TournamentFormat.league || format == TournamentFormat.leagueAndKnockout) && state.stage == 1;
-    final isKnockout = format == TournamentFormat.knockout || (format == TournamentFormat.leagueAndKnockout && state.stage == 2);
+    final isLeague =
+        (format == TournamentFormat.league ||
+            format == TournamentFormat.leagueAndKnockout) &&
+        state.stage == 1;
+    final isKnockout =
+        format == TournamentFormat.knockout ||
+        (format == TournamentFormat.leagueAndKnockout && state.stage == 2);
 
     if (state.currentPairing == null) {
       return _buildCta(
@@ -963,15 +1012,21 @@ class _CallToActionCard extends ConsumerWidget {
         icon: Icons.play_circle_fill,
         title:
             '${state.selectedSection}: 선수 $playersCount명 등록 완료. (권장: ${recommended}라운드)',
-        buttonText: isKnockout ? '토너먼트 대진표 진행' : (isLeague ? '리그전 시작 / 결과 입력' : '${state.currentRound}라운드 페어링 생성'),
+        buttonText: isKnockout
+            ? '토너먼트 대진표 진행'
+            : (isLeague ? '리그전 시작 / 결과 입력' : '${state.currentRound}라운드 페어링 생성'),
         onTap: () async {
           bool isGroupAssignmentNeeded() {
             final currentData = state.currentSectionData;
             if (currentData.groupCount <= 1) return false;
             final players = state.currentSectionPlayers;
             if (players.isEmpty) return false;
-            final groupIds = players.map((p) => p.groupId).where((id) => id != null).toSet();
-            return groupIds.length < currentData.groupCount || players.any((p) => p.groupId == null);
+            final groupIds = players
+                .map((p) => p.groupId)
+                .where((id) => id != null)
+                .toSet();
+            return groupIds.length < currentData.groupCount ||
+                players.any((p) => p.groupId == null);
           }
 
           void showGroupWarning(int index) {
@@ -985,21 +1040,34 @@ class _CallToActionCard extends ConsumerWidget {
                     Text('조 편성 필요'),
                   ],
                 ),
-                content: Text('현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?'),
+                content: Text(
+                  '현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       _navigateToStandings(context, index);
                     },
-                    child: const Text('그냥 진행', style: TextStyle(color: Colors.grey)),
+                    child: const Text(
+                      '그냥 진행',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   ),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const GroupAssignmentScreen(),
+                        ),
+                      );
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text('조 편성하기'),
                   ),
                 ],
@@ -1035,7 +1103,9 @@ class _CallToActionCard extends ConsumerWidget {
       icon: Icons.sports_score,
       title:
           '${state.selectedSection}: 현재 ${state.currentRound}라운드가 진행 중입니다. (권장: ${recommended}라운드)',
-      buttonText: isKnockout ? '토너먼트 대진표 확인' : (isLeague ? '리그표 확인 / 결과 입력' : '결과 입력 / 페어링 보기'),
+      buttonText: isKnockout
+          ? '토너먼트 대진표 확인'
+          : (isLeague ? '리그표 확인 / 결과 입력' : '결과 입력 / 페어링 보기'),
       onTap: () {
         if (isLeague) {
           bool isGroupAssignmentNeeded() {
@@ -1043,8 +1113,12 @@ class _CallToActionCard extends ConsumerWidget {
             if (currentData.groupCount <= 1) return false;
             final players = state.currentSectionPlayers;
             if (players.isEmpty) return false;
-            final groupIds = players.map((p) => p.groupId).where((id) => id != null).toSet();
-            return groupIds.length < currentData.groupCount || players.any((p) => p.groupId == null);
+            final groupIds = players
+                .map((p) => p.groupId)
+                .where((id) => id != null)
+                .toSet();
+            return groupIds.length < currentData.groupCount ||
+                players.any((p) => p.groupId == null);
           }
 
           void showGroupWarning(int index) {
@@ -1058,21 +1132,34 @@ class _CallToActionCard extends ConsumerWidget {
                     Text('조 편성 필요'),
                   ],
                 ),
-                content: Text('현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?'),
+                content: Text(
+                  '현재 ${state.currentSectionData.groupCount}개 조로 설정되어 있으나, 조 편성이 완료되지 않았습니다.\n\n이 상태로 진행하면 전체 1개 조로 운영될 수 있습니다. 조 편성 화면으로 이동하시겠습니까?',
+                ),
                 actions: [
                   TextButton(
                     onPressed: () {
                       Navigator.pop(ctx);
                       _navigateToStandings(context, index);
                     },
-                    child: const Text('그냥 진행', style: TextStyle(color: Colors.grey)),
+                    child: const Text(
+                      '그냥 진행',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   ),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const GroupAssignmentScreen(),
+                        ),
+                      );
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primary,
+                      foregroundColor: Colors.white,
+                    ),
                     child: const Text('조 편성하기'),
                   ),
                 ],
@@ -1085,7 +1172,7 @@ class _CallToActionCard extends ConsumerWidget {
             return;
           }
         }
-        
+
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1101,9 +1188,7 @@ class _CallToActionCard extends ConsumerWidget {
   void _navigateToStandings(BuildContext context, int index) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => StandingsScreen(initialIndex: index),
-      ),
+      MaterialPageRoute(builder: (_) => StandingsScreen(initialIndex: index)),
     );
   }
 
@@ -1350,7 +1435,9 @@ class _FormatSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentFormat = state.format;
     final notifier = ref.read(macmahonProvider.notifier);
-    final isLeague = currentFormat == TournamentFormat.league || currentFormat == TournamentFormat.leagueAndKnockout;
+    final isLeague =
+        currentFormat == TournamentFormat.league ||
+        currentFormat == TournamentFormat.leagueAndKnockout;
     final currentGroupCount = state.currentSectionData.groupCount;
 
     return Padding(
@@ -1378,27 +1465,43 @@ class _FormatSelector extends ConsumerWidget {
                   children: TournamentFormat.values
                       .where((f) => f != TournamentFormat.undecided)
                       .map((format) {
-                    final isSelected = currentFormat == format;
-                    return OutlinedButton(
-                      onPressed: () {
-                        notifier.updateSectionSettings(format: format);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: isSelected ? AppTheme.primary : Colors.transparent,
-                        foregroundColor: isSelected ? Colors.white : AppTheme.textPrimary,
-                        side: BorderSide(color: isSelected ? AppTheme.primary : Colors.grey.shade300),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      child: Text(
-                        _formatName(format),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    );
-                  }).toList(),
+                        final isSelected = currentFormat == format;
+                        return OutlinedButton(
+                          onPressed: () {
+                            notifier.updateSectionSettings(format: format);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: isSelected
+                                ? AppTheme.primary
+                                : Colors.transparent,
+                            foregroundColor: isSelected
+                                ? Colors.white
+                                : AppTheme.textPrimary,
+                            side: BorderSide(
+                              color: isSelected
+                                  ? AppTheme.primary
+                                  : Colors.grey.shade300,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Text(
+                            _formatName(format),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        );
+                      })
+                      .toList(),
                 ),
               ],
             ),
@@ -1423,38 +1526,67 @@ class _FormatSelector extends ConsumerWidget {
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      ...({1, 2, 4, 8, currentGroupCount}.toList()..sort()).map((n) {
-                        final isSelected = currentGroupCount == n;
-                        return OutlinedButton(
-                          onPressed: () {
-                            notifier.updateSectionSettings(groupCount: n);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: isSelected ? AppTheme.primary : Colors.transparent,
-                            foregroundColor: isSelected ? Colors.white : AppTheme.textPrimary,
-                            side: BorderSide(color: isSelected ? AppTheme.primary : Colors.grey.shade300),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: Text(
-                            '${n}개',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ...({1, 2, 4, 8, currentGroupCount}.toList()..sort()).map(
+                        (n) {
+                          final isSelected = currentGroupCount == n;
+                          return OutlinedButton(
+                            onPressed: () {
+                              notifier.updateSectionSettings(groupCount: n);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: isSelected
+                                  ? AppTheme.primary
+                                  : Colors.transparent,
+                              foregroundColor: isSelected
+                                  ? Colors.white
+                                  : AppTheme.textPrimary,
+                              side: BorderSide(
+                                color: isSelected
+                                    ? AppTheme.primary
+                                    : Colors.grey.shade300,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                            child: Text(
+                              '${n}개',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       OutlinedButton(
                         onPressed: () async {
-                          final val = await _showCustomGroupInputDialog(context, currentGroupCount);
-                          if (val != null) notifier.updateSectionSettings(groupCount: val);
+                          final val = await _showCustomGroupInputDialog(
+                            context,
+                            currentGroupCount,
+                          );
+                          if (val != null)
+                            notifier.updateSectionSettings(groupCount: val);
                         },
                         style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
-                        child: const Text('+입력', style: TextStyle(fontSize: 14)),
+                        child: const Text(
+                          '+입력',
+                          style: TextStyle(fontSize: 14),
+                        ),
                       ),
                     ],
                   ),
@@ -1464,13 +1596,20 @@ class _FormatSelector extends ConsumerWidget {
                     child: OutlinedButton.icon(
                       onPressed: () => Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const GroupAssignmentScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const GroupAssignmentScreen(),
+                        ),
                       ),
                       icon: const Icon(Icons.groups_outlined, size: 16),
-                      label: const Text('조 편성하기', style: TextStyle(fontSize: 14)),
+                      label: const Text(
+                        '조 편성하기',
+                        style: TextStyle(fontSize: 14),
+                      ),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ),
@@ -1485,15 +1624,22 @@ class _FormatSelector extends ConsumerWidget {
 
   String _formatName(TournamentFormat format) {
     switch (format) {
-      case TournamentFormat.undecided: return '미정';
-      case TournamentFormat.macmahon: return '맥마흔';
-      case TournamentFormat.league: return '풀리그';
-      case TournamentFormat.knockout: return '토너먼트';
-      case TournamentFormat.doubleElimination: return '더블 일리미네이션';
-      case TournamentFormat.leagueAndKnockout: return '풀리그+토너먼트';
+      case TournamentFormat.undecided:
+        return '미정';
+      case TournamentFormat.macmahon:
+        return '맥마흔';
+      case TournamentFormat.league:
+        return '풀리그';
+      case TournamentFormat.knockout:
+        return '토너먼트';
+      case TournamentFormat.doubleElimination:
+        return '더블 일리미네이션';
+      case TournamentFormat.leagueAndKnockout:
+        return '풀리그+토너먼트';
     }
   }
 }
+
 class _LeagueSummaryCard extends StatelessWidget {
   final MacmahonState state;
   const _LeagueSummaryCard({required this.state});
@@ -1550,7 +1696,9 @@ class _LeagueSummaryCard extends StatelessWidget {
                   value: total > 0 ? completed / total : 0,
                   minHeight: 10,
                   backgroundColor: Colors.white,
-                  valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppTheme.primary,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1558,8 +1706,16 @@ class _LeagueSummaryCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _InfoItem(label: '총 경기', value: '$total'),
-                  _InfoItem(label: '완료', value: '$completed', color: Colors.blue),
-                  _InfoItem(label: '미진행', value: '${total - completed}', color: Colors.orange),
+                  _InfoItem(
+                    label: '완료',
+                    value: '$completed',
+                    color: Colors.blue,
+                  ),
+                  _InfoItem(
+                    label: '미진행',
+                    value: '${total - completed}',
+                    color: Colors.orange,
+                  ),
                 ],
               ),
               const SizedBox(height: 24),
@@ -1578,7 +1734,9 @@ class _LeagueSummaryCard extends StatelessWidget {
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -1616,6 +1774,7 @@ class _InfoItem extends StatelessWidget {
     );
   }
 }
+
 class _GroupConfigCard extends ConsumerWidget {
   final MacmahonState state;
   const _GroupConfigCard({required this.state});
@@ -1655,7 +1814,11 @@ class _GroupConfigCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.grid_view, color: AppTheme.primary, size: 20),
+                  const Icon(
+                    Icons.grid_view,
+                    color: AppTheme.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   const Text(
                     '현재 조 구성:',
@@ -1676,7 +1839,9 @@ class _GroupConfigCard extends ConsumerWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  ...({1, 2, 4, 8, currentGroupCount}.toList()..sort()).map((n) {
+                  ...({1, 2, 4, 8, currentGroupCount}.toList()..sort()).map((
+                    n,
+                  ) {
                     final isSelected = currentGroupCount == n;
                     return ChoiceChip(
                       label: Text('$n개 조'),
@@ -1689,7 +1854,9 @@ class _GroupConfigCard extends ConsumerWidget {
                       selectedColor: AppTheme.primary,
                       labelStyle: TextStyle(
                         color: isSelected ? Colors.white : AppTheme.textPrimary,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     );
                   }),
@@ -1697,7 +1864,10 @@ class _GroupConfigCard extends ConsumerWidget {
                     label: const Text('+ 직접 입력'),
                     avatar: const Icon(Icons.edit, size: 16),
                     onPressed: () async {
-                      final val = await _showCustomGroupInputDialog(context, currentGroupCount);
+                      final val = await _showCustomGroupInputDialog(
+                        context,
+                        currentGroupCount,
+                      );
                       if (val != null) {
                         notifier.updateSectionSettings(groupCount: val);
                       }
@@ -1719,7 +1889,9 @@ class _GroupConfigCard extends ConsumerWidget {
                   label: const Text('조 편성 및 선수 관리'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -1751,7 +1923,10 @@ Future<int?> _showCustomGroupInputDialog(BuildContext context, int initial) {
         },
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: const Text('취소'),
+        ),
         ElevatedButton(
           onPressed: () {
             final val = int.tryParse(controller.text);

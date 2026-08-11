@@ -13,9 +13,21 @@ void main() {
 
   group('CalculateStandingsUseCase - League', () {
     test('should calculate correct wins and score for league', () {
-      final player1 = MacmahonPlayer(id: '1', name: 'Player 1', section: 'A', initialMms: 0.0, currentMms: 0.0);
-      final player2 = MacmahonPlayer(id: '2', name: 'Player 2', section: 'A', initialMms: 0.0, currentMms: 0.0);
-      
+      final player1 = MacmahonPlayer(
+        id: '1',
+        name: 'Player 1',
+        section: 'A',
+        initialMms: 0.0,
+        currentMms: 0.0,
+      );
+      final player2 = MacmahonPlayer(
+        id: '2',
+        name: 'Player 2',
+        section: 'A',
+        initialMms: 0.0,
+        currentMms: 0.0,
+      );
+
       final pair = MacmahonPair(
         black: player1,
         white: player2,
